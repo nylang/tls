@@ -1,0 +1,14 @@
+name: tls
+version: 0.1.0
+license: MIT
+dependencies:
+  stdlib:
+    path: ../../source/stdlib
+  net_core:
+    path: ../net_core
+directories:
+  interface:
+    - interface
+  private:
+    - private
+    - tests
