@@ -5,10 +5,14 @@ Independent Nyra TLS package, MIT licensed. The initial backend is OpenSSL
 [openssl.lock.json](openssl.lock.json). OpenSSL is Apache-2.0 licensed; see
 [its retained license](OPENSSL-LICENSE.txt) and [dependency policy](docs/openssl.md).
 
-This first increment provides a **transport-neutral client engine**, not a
-complete TCP/Future TLS stream or HTTPS client. It uses net_core's public byte
-ranges and operation controls; net_core never imports TLS. No compiler changes
-or native descriptor access are needed.
+The package provides a **verified client engine and caller-driven TCP/Future
+TLS stream**. It uses net_core's public connection, byte-range, readiness and
+control APIs; net_core never imports TLS. HTTP/HTTPS remains a separate package.
+
+**Compiler requirement:** the stream needs the native deleted-copy ARC ownership
+fix discovered during integration. Published SDK 1.0.0/1.0.1 compilers contain the
+defect; use an explicit compatible source candidate with the public SDK runtime
+until a fixed SDK is accepted. No SDK promotion is implied by local TLS acceptance.
 
 - Move-only `TlsSession` owns private native state and releases it through drop.
 - Explicit PEM CA file, mandatory certificate-chain and DNS/IP SAN verification.
@@ -22,8 +26,16 @@ or native descriptor access are needed.
 - Absolute net_core deadlines and cancellation checks on every protocol step;
   cancellation wins over timeout and retires the engine.
 - Authenticated `close_notify` is distinct from unexpected transport EOF.
+- `TlsStream` moves TCP ownership on successful construction and owns one bounded
+  readiness driver. `HandshakeAsync`, `ReadAsync`, `WriteAllAsync` and
+  `ShutdownAsync` return local Futures driven explicitly by `Poll`.
+- Partial TCP sends retain unsent ciphertext offsets; oversized input fragments
+  remain buffered until BIO admission. Readiness uses the original operation
+  deadline/token. One pending operation and a configurable payload limit bound
+  retained work; Close/drop retires all resources before publishing completion.
 
-The public face is [interface/tls.ni](interface/tls.ni). See
+The public faces are [engine](interface/tls.ni) and [stream](interface/stream.ni).
+See [stream driving/ownership](docs/stream.md) and
 [engine contracts and transport driving](docs/engine.md) before using it.
 A step's Complete state may still leave output to send. Ciphertext removed by
 DrainCiphertext becomes the transport driver's responsibility: retain unsent
@@ -42,6 +54,7 @@ pinned 3.5.9 static libraries.
 python3 scripts/build_openssl.py --out-dir /absolute/cache/openssl-build
 python3 scripts/accept.py \
   --sdk /absolute/path/to/nyra-sdk \
+  --compiler /absolute/path/to/compatible/nyrac \
   --net-core /absolute/path/to/net_core \
   --openssl-root /absolute/cache/openssl-build/openssl-3.5.9 \
   --out-dir /absolute/cache/tls-acceptance
@@ -51,7 +64,7 @@ The acceptance runner stages both Nyra packages against SDK precompiled stdlib
 with source fallback disabled. It runs native behavior cases, Nyra ownership/
 control cases, isolated replays and production fixture-import checks. On macOS,
 use a host Clang with a compatible ASan runtime (for example
-`--native-cc /usr/bin/clang`); the supplied Nyra SDK still compiles Nyra sources.
+`--native-cc /usr/bin/clang`); the selected native compiler uses the supplied SDK runtime.
 The SDK 1.0.0 bundled Clang 21 ASan runtime stalls during initialization on the
 accepted macOS 27 host, so it is not used for sanitized native acceptance.
 

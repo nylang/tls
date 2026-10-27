@@ -25,14 +25,23 @@ stream, system-trust integration, cross-platform acceptance or package release.
 
 ## T2 — net_core transport adapter
 
-- [ ] Move-owned TCP/TLS stream with caller-thread Future driving and bounded queues.
-- [ ] Preserve ciphertext/offsets across partial TryWrite; retain excess read input.
-- [ ] Drain output before waiting for input, including read/shutdown/key-update paths.
-- [ ] Carry one absolute deadline and cancellation through all native readiness waits.
-- [ ] Preserve write retry payloads, plaintext progress and ownership on failure/drop.
-- [ ] Handle concurrent-operation admission, Close/reentry and abandonment cleanup.
-- [ ] Accept loopback client/server transfers, interrupted I/O, timeout/cancel,
-      truncation and authenticated half/full shutdown using public net_core only.
+- [x] Move-owned TCP/TLS stream with caller-thread Future driving and bounded queues.
+- [x] Preserve ciphertext/offsets across partial TryWrite; retain excess read input.
+- [x] Drain output before waiting for input, including read/shutdown protocol progress.
+- [x] Carry one absolute deadline and cancellation through all native readiness waits.
+- [x] Preserve write retry payloads, plaintext progress and ownership on failure/drop.
+- [x] Handle concurrent-operation admission, Close/reentry and abandonment cleanup.
+- [x] macOS loopback transfers, forced partial I/O/WouldBlock/native send failure,
+      timeout/cancel, truncation and authenticated peer/full shutdown using public net_core.
+
+The macOS source candidate passes 21 TLS cases and 21 isolated replays (six engine
+facade cases and 15 stream cases), plus 19 native bridge cases and production
+fixture isolation. See [stream contracts](docs/stream.md) and
+[acceptance](tests/README.md). The integration required a native compiler fix:
+ARC-backed facades with deleted copy must be moved, never implicitly cloned.
+The published SDK compilers remain unsupported for this stream until that fix
+is released; the runner supports an explicit native candidate and public SDK
+runtime. Other hosts, complete fault matrices and release acceptance remain T3.
 
 ## T3 — Platform trust and delivery
 

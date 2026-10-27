@@ -1,0 +1,150 @@
+/* POSIX loopback peer and adapter interposition, linked into acceptance executables only. */
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include "net_core_os.h"
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <errno.h>
+#include <pthread.h>
+#include <stdatomic.h>
+#include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
+
+#ifndef NYRA_TLS_TEST_CERT_FILE
+#error "accept.py must supply fixture certificate/key paths"
+#endif
+static pthread_t server_thread;
+static int running, listener, server_mode, expected_bytes, server_result;
+static SSL_CTX *server_context;
+static atomic_int released, write_limit, write_calls, write_stalls, fail_after;
+static atomic_int written_bytes, partial_writes, injected_stalls;
+
+int32_t nyra_tls_test_real_write(intptr_t, const uint8_t *, intptr_t, intptr_t *, nc_error *);
+int32_t net_core_os_write(intptr_t handle, const uint8_t *data, intptr_t size, intptr_t *out, nc_error *error) {
+  int call = atomic_fetch_add(&write_calls, 1) + 1;
+  *out = 0;
+  int fail = atomic_load(&fail_after);
+  int sent = atomic_load(&written_bytes);
+  if (fail >= 0 && sent >= fail) { error->kind = NC_RESET; error->native_code = ECONNRESET; return NC_RESET; }
+  int stalls = atomic_load(&write_stalls);
+  if (stalls && call % stalls == 0) {
+    atomic_fetch_add(&injected_stalls, 1);
+    error->kind = NC_WOULD_BLOCK; error->native_code = EAGAIN; return NC_WOULD_BLOCK;
+  }
+  intptr_t amount = size;
+  int limit = atomic_load(&write_limit);
+  if (limit > 0 && amount > limit) amount = limit;
+  if (fail >= 0 && amount > fail - sent) amount = fail - sent;
+  int32_t rc = nyra_tls_test_real_write(handle, data, amount, out, error);
+  if (!rc) {
+    atomic_fetch_add(&written_bytes, (int)*out);
+    if (*out < size) atomic_fetch_add(&partial_writes, 1);
+  }
+  return rc;
+}
+void nyra_tls_test_write_controls(int32_t limit, int32_t stalls, int32_t fail) {
+  atomic_store(&write_limit, limit); atomic_store(&write_stalls, stalls); atomic_store(&fail_after, fail);
+  atomic_store(&write_calls, 0); atomic_store(&written_bytes, 0);
+  atomic_store(&partial_writes, 0); atomic_store(&injected_stalls, 0);
+}
+int32_t nyra_tls_test_partial_writes(void) { return atomic_load(&partial_writes); }
+int32_t nyra_tls_test_write_stalls(void) { return atomic_load(&injected_stalls); }
+static void wait_release(void) {
+  const struct timespec pause = {0, 1000000};
+  for (int i = 0; i < 10000 && !atomic_load(&released); ++i) nanosleep(&pause, NULL);
+}
+static void *serve(void *unused) {
+  (void)unused;
+  int fd = accept(listener, NULL, NULL);
+  if (fd < 0) { server_result = -1; return NULL; }
+#ifdef SO_NOSIGPIPE
+  int enabled = 1; setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &enabled, sizeof(enabled));
+#endif
+  struct timeval timeout = {10, 0};
+  setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+  setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+  if (server_mode == 1) { wait_release(); close(fd); return NULL; }
+  SSL *ssl = SSL_new(server_context);
+  if (!ssl || !SSL_set_fd(ssl, fd)) { server_result = -2; SSL_free(ssl); close(fd); return NULL; }
+  if (SSL_accept(ssl) != 1) {
+    server_result = server_mode == 5 ? 0 : -3;
+    SSL_free(ssl); close(fd); return NULL;
+  }
+  if (server_mode == 3) { wait_release(); SSL_free(ssl); close(fd); return NULL; }
+  if (server_mode == 2) {
+    size_t sent = 0;
+    if (!SSL_write_ex(ssl, "prefix", 6, &sent) || sent != 6) server_result = -4;
+    SSL_free(ssl); close(fd); return NULL;
+  }
+  uint8_t *payload = malloc((size_t)expected_bytes + 1);
+  if (!payload) { server_result = -5; SSL_free(ssl); close(fd); return NULL; }
+  size_t total = 0;
+  while (total < (size_t)expected_bytes) {
+    size_t count = 0;
+    if (!SSL_read_ex(ssl, payload + total, (size_t)expected_bytes - total, &count) || !count) { server_result = -6; goto done; }
+    total += count;
+  }
+  total = 0;
+  while (total < (size_t)expected_bytes) {
+    size_t size = (size_t)expected_bytes - total; if (size > 317) size = 317;
+    size_t count = 0;
+    if (!SSL_write_ex(ssl, payload + total, size, &count) || !count) { server_result = -7; goto done; }
+    total += count;
+  }
+  int rc = SSL_shutdown(ssl);
+  if (rc == 0) rc = SSL_shutdown(ssl);
+  if (rc != 1) server_result = -8;
+done:
+  free(payload); SSL_free(ssl); close(fd); return NULL;
+}
+int32_t nyra_tls_test_server_start(int32_t mode, int32_t size) {
+  if (running || size < 0 || size > 1048576) return -1;
+  nyra_tls_test_write_controls(0, 0, -1);
+  signal(SIGPIPE, SIG_IGN);
+  server_context = SSL_CTX_new(TLS_server_method());
+  if (!server_context) return -2;
+  if (!SSL_CTX_set_min_proto_version(server_context, TLS1_2_VERSION) ||
+      !SSL_CTX_set_max_proto_version(server_context, TLS1_3_VERSION) ||
+      !SSL_CTX_use_certificate_chain_file(server_context, NYRA_TLS_TEST_CERT_FILE) ||
+      !SSL_CTX_use_PrivateKey_file(server_context, NYRA_TLS_TEST_KEY_FILE, SSL_FILETYPE_PEM)) goto failed;
+  listener = socket(AF_INET, SOCK_STREAM, 0);
+  if (listener < 0) goto failed;
+  struct sockaddr_in address; memset(&address, 0, sizeof(address));
+  address.sin_family = AF_INET; address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  socklen_t length = sizeof(address);
+  if (bind(listener, (struct sockaddr *)&address, sizeof(address)) || listen(listener, 8) ||
+      getsockname(listener, (struct sockaddr *)&address, &length)) { close(listener); goto failed; }
+  server_mode = mode; expected_bytes = size; server_result = 0; atomic_store(&released, 0);
+  if (pthread_create(&server_thread, NULL, serve, NULL)) { close(listener); goto failed; }
+  running = 1;
+  return ntohs(address.sin_port);
+failed:
+  SSL_CTX_free(server_context); server_context = NULL; return -3;
+}
+int32_t nyra_tls_test_server_join(void) {
+  if (!running) return -1;
+  atomic_store(&released, 1);
+  pthread_join(server_thread, NULL);
+  close(listener); SSL_CTX_free(server_context); server_context = NULL; running = 0;
+  if (server_result) fprintf(stderr, "TLS fixture server result=%d\n", server_result);
+  return server_result;
+}
+int32_t nyra_tls_test_fd_count(void) {
+#ifdef __APPLE__
+  DIR *directory = opendir("/dev/fd");
+#else
+  DIR *directory = opendir("/proc/self/fd");
+#endif
+  if (!directory) return -1;
+  int count = 0; struct dirent *entry;
+  while ((entry = readdir(directory))) if (strcmp(entry->d_name, ".") && strcmp(entry->d_name, "..")) ++count;
+  closedir(directory); return count;
+}
+int32_t nyra_tls_test_reset_native_code(void) { return ECONNRESET; }
+int32_t nyra_tls_test_written_bytes(void) { return atomic_load(&written_bytes); }

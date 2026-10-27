@@ -2,3 +2,5 @@
 export "interface/tls.ni";
 import "interface/tls.ni";
 import "private/tls.ny";
+export "interface/stream.ni";
+import "interface/stream.ni";

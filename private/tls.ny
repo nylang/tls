@@ -1,9 +1,13 @@
 /** @brief Language ownership and public error mapping around the private TLS bridge. */
 module TlsEngine;
 part "../tests/engine_selftest.ny";
+part "../tests/stream_selftest.ny";
+part "stream.ny";
+part "stream_poll.ny";
 import "stdlib:stdlib.ny";
 import "net_core:net_core.ny";
 import "interface/tls.ni";
+import "interface/stream.ni";
 
 struct TlsNativeResult { status: int32; error: int32; count: intptr; }
 @extern("C") func nyra_tls_client_new(peer: *const uint8, peer_size: intptr, ca_file: *const uint8, ca_size: intptr, alpn: *const uint8, alpn_size: intptr, capacity: int32, out: *mut *mut uint8) -> int32;
