@@ -2,6 +2,7 @@
 module TlsEngine;
 part "../tests/engine_selftest.ny";
 part "../tests/stream_selftest.ny";
+part "../tests/stream_control_selftest.ny";
 part "stream.ny";
 part "stream_poll.ny";
 import "stdlib:stdlib.ny";

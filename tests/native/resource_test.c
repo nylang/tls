@@ -6,17 +6,24 @@
 #include <string.h>
 
 #define CHECK(c) do { if (!(c)) { fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #c); exit(1); } } while (0)
-enum fault { FAULT_CONTEXT = 1, FAULT_TRUST, FAULT_STATE, FAULT_SESSION, FAULT_PAIR, FAULT_PARTIAL_PAIR, FAULT_HOST, FAULT_IP, FAULT_SNI, FAULT_ALPN };
-static int selected, hits, contexts, sessions, states, bios, host_calls, sni_calls;
+enum fault { FAULT_CONTEXT = 1, FAULT_TRUST, FAULT_STATE, FAULT_SESSION, FAULT_PAIR, FAULT_PARTIAL_PAIR, FAULT_HOST, FAULT_IP, FAULT_SNI, FAULT_ALPN, FAULT_PROVIDER };
+static int selected, hits, contexts, sessions, states, bios, host_calls, sni_calls, providers;
 static int fail(int point) {
   if (selected != point) return 0;
   selected = 0; ++hits;
   ERR_raise(ERR_LIB_CRYPTO, ERR_R_MALLOC_FAILURE);
   return 1;
 }
-SSL_CTX *nyra_tls_test_ctx_new(const SSL_METHOD *method) {
+OSSL_LIB_CTX *nyra_tls_test_provider_new(void) {
+  if (fail(FAULT_PROVIDER)) return NULL;
+  OSSL_LIB_CTX *value = OSSL_LIB_CTX_new(); if (value) ++providers; return value;
+}
+void nyra_tls_test_provider_free(OSSL_LIB_CTX *provider) {
+  if (provider) { CHECK(providers > 0); --providers; } OSSL_LIB_CTX_free(provider);
+}
+SSL_CTX *nyra_tls_test_ctx_new(OSSL_LIB_CTX *provider, const char *properties, const SSL_METHOD *method) {
   if (fail(FAULT_CONTEXT)) return NULL;
-  SSL_CTX *value = SSL_CTX_new(method); if (value) ++contexts; return value;
+  SSL_CTX *value = SSL_CTX_new_ex(provider, properties, method); if (value) ++contexts; return value;
 }
 void nyra_tls_test_ctx_free(SSL_CTX *context) {
   if (context) { CHECK(contexts > 0); --contexts; } SSL_CTX_free(context);
@@ -68,7 +75,7 @@ long nyra_tls_test_ctrl(SSL *ssl, int command, long argument, void *pointer) {
 int nyra_tls_test_alpn(SSL *ssl, const unsigned char *protocols, unsigned int size) {
   return fail(FAULT_ALPN) ? 1 : SSL_set_alpn_protos(ssl, protocols, size);
 }
-static void empty(void) { CHECK(!contexts && !sessions && !states && !bios); }
+static void empty(void) { CHECK(!contexts && !sessions && !states && !bios && !providers); }
 static int construct(const char *name, const char *ca, ntls_session **out) {
   return nyra_tls_client_new((const uint8_t *)name, (intptr_t)strlen(name),
       (const uint8_t *)ca, (intptr_t)strlen(ca), (const uint8_t *)"http/1.1", 8, 1024, out);
@@ -87,6 +94,7 @@ int main(int argc, char **argv) {
     {FAULT_IP, NTLS_RESOURCE, "::1", "IPv6 verification allocation failure cannot fall back to DNS/SNI"},
     {FAULT_SNI, NTLS_RESOURCE, "localhost", "SNI allocation failure is ResourceExhausted"},
     {FAULT_ALPN, NTLS_RESOURCE, "localhost", "ALPN allocation failure rolls back"},
+    {FAULT_PROVIDER, NTLS_RESOURCE, "localhost", "private provider context allocation failure rolls back"},
   };
   int only = argc == 3 ? atoi(argv[2]) : -1;
   CHECK(only >= -1 && only < (int)(sizeof(cases) / sizeof(cases[0])));
@@ -103,7 +111,7 @@ int main(int argc, char **argv) {
       host_calls = sni_calls = 0;
       CHECK(construct(cases[i].name, argv[1], &session) == NTLS_OK && session);
       if (cases[i].point == FAULT_IP) CHECK(!host_calls && !sni_calls);
-      CHECK(contexts == 0 && sessions == 1 && states == 1 && bios == 1);
+      CHECK(contexts == 0 && sessions == 1 && states == 1 && bios == 1 && providers == 1);
       nyra_tls_drop(session); empty(); CHECK(!ERR_peek_error());
     }
     printf("PASS %s\n", cases[i].label);

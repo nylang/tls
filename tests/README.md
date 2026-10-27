@@ -1,17 +1,18 @@
 # TLS acceptance
 
-The current [certificate/constructor acceptance](../docs/certificate-resource-acceptance-2026-10-27.json)
-records **23 Nyra cases, 23 isolated replays and 48 native scenarios** on the three
+The current [control-boundary acceptance](../docs/control-boundary-acceptance-2026-10-27.json)
+records **31 Nyra cases, 31 isolated replays and 60 native scenarios** on the three
 accepted desktop hosts, with matching source inputs and production isolation.
 macOS/Linux native tests use ASan/UBSan; Windows is unsanitized.
 
-Eleven certificate cases add complete/missing/wrong-key intermediate chains,
+The earlier [48-scenario certificate/constructor acceptance](../docs/certificate-resource-acceptance-2026-10-27.json)
+is retained. Eleven certificate cases add complete/missing/wrong-key intermediate chains,
 CA:FALSE/pathLenConstraint rejection, server EKU/time validation, depth eight/nine,
 and valid-below/invalid-above-256-KiB certificate message sizes. Fixture keys and
 certificates remain outside the package. Deep-chain fixtures reuse a test key
 with distinct issuer names; signature verification remains enabled.
 
-Eleven constructor fault scenarios each repeat eight injected failures and eight
+The initial eleven constructor fault scenarios each repeat eight failures and eight
 healthy recoveries. The separately compiled bridge object intercepts acquisition,
 adoption and release at context/trust/state/session/BIO/DNS/IP/SNI/ALPN boundaries;
 it does not replace the process allocator or claim exhaustive provider-internal
@@ -112,10 +113,71 @@ The acceptance net_core adapter renames its read/write functions so the test fix
 force partial progress, WouldBlock, a native error and controlled ciphertext mutation. Production adapter builds
 use the original symbol; no product API or production test hook is added.
 
+## Runtime provider allocation acceptance
+
+The native runner also builds a separate runtime allocation executable. A fresh
+process installs OpenSSL allocator hooks before initialization, measures one healthy
+step, and repeats with each observed allocation independently failed. Nine operation
+baselines cover TLS 1.2/1.3 initial ClientHello, read, first write and first shutdown,
+plus TLS 1.3 requested-KeyUpdate read. Every failure run checks terminal retirement
+or valid tolerated completion, then a healthy same-process connection and zero
+hook-tracked live allocations after provider cleanup. No allocator hook enters the
+production bridge. The shared engine peer helpers live in `native/engine_peer.h`.
+
+See [runtime allocation acceptance](../docs/runtime-resource-acceptance-2026-10-27.json)
+for exact host counts and limitations. Earlier 48-scenario receipts are historical;
+the earlier runtime increment has 57 native scenarios, with indices recorded separately.
+TLS 1.2's selected read step allocates nothing and therefore has no injected failure.
+Known allocation reasons report ResourceExhausted even beneath wrapper errors;
+provider paths that discard that reason remain terminal Protocol. Optional failed
+allocations may be tolerated by OpenSSL with valid authenticated completion.
+
+## Later-handshake allocation acceptance
+
+The later increment adds TLS 1.2/1.3 windows covering every client handshake step
+after the initial ClientHello through authentication and completion. Only client
+TLS steps consume allocation indices; peer and relay work runs outside injection.
+Failures during first-use algorithm registration previously poisoned the default
+provider cache and prevented a healthy later connection. Each client now owns its
+own OpenSSL library context, so failed registration state is destroyed with the
+session. A twelfth constructor scenario checks context-allocation rollback, and
+all existing acquisition counters include the private context's lifetime.
+
+The runner still requires terminal retirement on failure, untouched caller storage,
+zero new plaintext, same-process new-session recovery, and zero hook-tracked provider
+allocations after cleanup. Optional failures can succeed only with a completed
+verified handshake and authenticated shutdown. The provider sometimes loses its
+allocation reason during verification and returns a certificate/name failure;
+these remain terminal named verification errors, not fabricated resource diagnoses.
+The exact outcomes and pre-isolation reproductions are retained in the
+[handshake receipt](../docs/handshake-resource-acceptance-2026-10-27.json).
+
+## Close and cancellation boundaries
+
+Eight cases in `stream_control_selftest.ny` cover final-flush cancellation,
+final-flush expiry, cancellation-over-expiry, cancellation-over-native-send-error,
+cancellation after a native ciphertext read, shutdown cancellation after sending
+our alert, explicit Close after cancelling a partial write, and shutdown callback
+reentry with cancellation after publication. Read/write/error rendezvous live only
+in the native fixture. The control worker observes the rendezvous, cancels a public
+token or waits for the absolute deadline, and releases the caller-thread I/O.
+It never reads or mutates the stream. Tests assert the rendezvous was reached and
+released without its guard timeout, so a missed boundary cannot count as success.
+
+The original Poll fails four final-flush cases: it can return success despite
+controls being published during the write, or expose the native error ahead of
+cancellation. Poll now checks controls after the flush before either outcome.
+The retained accepted plaintext prefix, zero pending backing, retirement before
+callbacks, exactly-once publication and immutable completed results are checked.
+See [control acceptance](../docs/control-boundary-acceptance-2026-10-27.json)
+for before-fix evidence and host receipts. Each accepted host additionally passes
+ten rounds of the eight new cases (80 targeted replays). This is a controlled matrix, not every
+possible scheduling, readiness/error or shutdown/cancellation interleaving.
+
 ## Remaining gates
 
-- Additional certificate algorithms/critical extensions, provider-internal and
-  runtime-operation allocation failures, malformed
+- Additional certificate algorithms/critical extensions, other
+  provider/runtime allocation failures, malformed
   post-handshake messages, unsolicited authentication and key-update/fault combinations
   beyond the accepted repeated-update, replay and corruption cases.
 - Broader readiness/native failure matrices, simultaneous native events and late

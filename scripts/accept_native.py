@@ -11,6 +11,7 @@ import subprocess
 import sys
 from native_support import static_libraries, system_libraries
 from certificate_fixtures import generate as generate_certificate_fixtures
+from runtime_resources import exercise as exercise_runtime_resources
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -98,9 +99,18 @@ def main() -> int:
              *system_libraries(windows, platform.system() == 'Linux'), '-o', str(resource_executable)])
         resources = run([str(resource_executable), str(output / 'ca.pem')])
         report['resource_cases'] = [line[5:] for line in resources.splitlines() if line.startswith('PASS ')]
-        if len(report['resource_cases']) != 11:
+        if len(report['resource_cases']) != 12:
             raise ValueError('not all constructor resource-failure scenarios executed')
         report['cases'].extend(report['resource_cases'])
+        runtime_executable = output / ('runtime-resource-test.exe' if windows else 'runtime-resource-test')
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+             '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
+             str(PACKAGE / 'tests/native/runtime_resource_test.c'),
+             str(PACKAGE / 'private/native/tls_engine.c'),
+             *map(str, static_libraries(ssl, windows)),
+             *system_libraries(windows, platform.system() == 'Linux'), '-o', str(runtime_executable)])
+        report['runtime_resource_cases'] = exercise_runtime_resources(run, runtime_executable, output)
+        report['cases'].extend(case['name'] for case in report['runtime_resource_cases'])
         report['native'] = json.loads((output / 'native/native-manifest.json').read_text())
         for name, expected in report['source_sha256'].items():
             if hashlib.sha256((PACKAGE / name).read_bytes()).hexdigest() != expected:

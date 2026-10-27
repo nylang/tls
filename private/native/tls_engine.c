@@ -14,6 +14,7 @@
 
 #define NTLS_RECORD 16384
 struct ntls_session {
+  OSSL_LIB_CTX *provider;
   SSL *ssl;
   BIO *wire;
   int handshaken, closing, failed, input_ended;
@@ -50,6 +51,7 @@ static int dns_name_ok(const char *peer) {
 void nyra_tls_drop(ntls_session *s) {
   if (!s) return;
   SSL_free(s->ssl); BIO_free(s->wire);
+  OSSL_LIB_CTX_free(s->provider);
   OPENSSL_cleanse(s->write_retry, sizeof(s->write_retry));
   OPENSSL_cleanse(s->read_retry, sizeof(s->read_retry));
   free(s);
@@ -59,6 +61,7 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
     int32_t capacity, ntls_session **out) {
   char name[254], path[4096];
   SSL_CTX *ctx = NULL;
+  OSSL_LIB_CTX *provider = NULL;
   BIO *internal = NULL;
   ntls_session *s = NULL;
   int error = NTLS_RESOURCE;
@@ -70,7 +73,10 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
       capacity < 1024 || capacity > 1048576) return NTLS_ARGUMENT;
   if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER) return NTLS_STATE;
   ERR_clear_error();
-  ctx = SSL_CTX_new(TLS_client_method());
+  /* Failed lazy algorithm registration must not poison another session's cache. */
+  provider = OSSL_LIB_CTX_new();
+  if (!provider) goto done;
+  ctx = SSL_CTX_new_ex(provider, NULL, TLS_client_method());
   if (!ctx) goto done;
   if (!SSL_CTX_set_min_proto_version(ctx, TLS1_2_VERSION) ||
       !SSL_CTX_set_max_proto_version(ctx, TLS1_3_VERSION)) goto done;
@@ -82,6 +88,7 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
   if (!SSL_CTX_load_verify_file(ctx, path)) { error = NTLS_TRUST; goto done; }
   s = calloc(1, sizeof(*s));
   if (!s) goto done;
+  s->provider = provider; provider = NULL;
   s->ssl = SSL_new(ctx);
   if (!s->ssl || !BIO_new_bio_pair(&internal, (size_t)capacity, &s->wire, (size_t)capacity)) goto done;
   SSL_set_bio(s->ssl, internal, internal); internal = NULL;
@@ -105,7 +112,7 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
   SSL_set_connect_state(s->ssl);
   *out = s; s = NULL; error = NTLS_OK;
 done:
-  BIO_free(internal); nyra_tls_drop(s); SSL_CTX_free(ctx);
+  BIO_free(internal); SSL_CTX_free(ctx); nyra_tls_drop(s); OSSL_LIB_CTX_free(provider);
   ERR_clear_error();
   return error;
 }
@@ -121,8 +128,15 @@ static ntls_result classify(ntls_session *s, int rc, size_t count) {
   }
   if (error == SSL_ERROR_ZERO_RETURN) return result(NTLS_PEER_CLOSED, NTLS_OK, 0);
   long verification = SSL_get_verify_result(s->ssl);
-  unsigned long code = ERR_peek_last_error();
+  unsigned long code = 0, next;
+  int allocation_failed = verification == X509_V_ERR_OUT_OF_MEM;
+  /* A later SSL wrapper error may hide the original provider allocation error. */
+  while ((next = ERR_get_error()) != 0) {
+    code = next;
+    if (ERR_GET_REASON(next) == ERR_R_MALLOC_FAILURE) allocation_failed = 1;
+  }
   s->failed = 1;
+  if (allocation_failed) return failure(NTLS_RESOURCE);
   if (verification == X509_V_ERR_HOSTNAME_MISMATCH || verification == X509_V_ERR_IP_ADDRESS_MISMATCH)
     return failure(NTLS_NAME);
   if (verification != X509_V_OK) return failure(NTLS_CERTIFICATE);

@@ -28,8 +28,17 @@ Admission validates state, payload budget and controls. Rejection returns the
 outer Result and leaves the existing stream/operation intact. Once admitted,
 TLS/transport failure, cancellation or timeout retires the stream and returns the
 error in TlsTransfer. Cancellation takes priority over timeout, including after
-a native wait. No per-retry timeout is started. Wakeable tokens interrupt native
-waits directly; flag-only tokens retain net_core's documented cooperative bound.
+a native wait. Poll also rechecks controls immediately after a transport flush,
+before reporting either its native error or operation success. This covers a token
+cancelled or a deadline reached while the final ciphertext write is returning;
+TLS-accepted plaintext progress remains in the terminal transfer. These observation
+points do not promise atomic scheduling of cancellation and Future publication.
+No per-retry timeout is started. Wakeable tokens interrupt native waits directly;
+flag-only tokens retain net_core's documented cooperative bound.
+
+Explicit Close completes admitted work with Closed immediately, even if its token
+was cancelled but Poll has not yet processed it. A completed Future is immutable:
+cancelling from its completion callback cannot replace its published result.
 
 ## Queues, retries and progress
 
@@ -84,5 +93,14 @@ Published SDK 1.0.0/1.0.1 compilers lack the fix. scripts/accept.py accepts
 verified public SDK runtime/manifest identity and disabling source fallback.
 macOS deployment target follows the chosen runtime manifest.
 
-[Acceptance](../tests/README.md) records macOS loopback coverage and remaining
-cross-host, key-update, allocation-failure, mobile and release gates.
+The [control-boundary acceptance](control-boundary-acceptance-2026-10-27.json)
+adds eight cases: final-flush cancel, timeout and cancellation-over-timeout;
+cancellation-over-send-error; cancel after native ciphertext read; cancel while
+shutdown awaits the peer; explicit Close of a cancelled partial write; and shutdown
+callback reentry with late cancellation. Test-only interposition rendezvous lets a
+worker publish controls before native I/O returns. The worker never accesses a
+TlsStream. Deadline tests wait for the absolute time after reaching the rendezvous;
+reaching it and releasing it before its guard timeout are both asserted.
+
+[Acceptance](../tests/README.md) records three-host source-candidate coverage and
+remaining transition, allocation, macOS x86_64, mobile and release gates.

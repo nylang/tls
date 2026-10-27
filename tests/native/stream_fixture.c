@@ -47,6 +47,38 @@ static SSL_CTX *server_context;
 static atomic_int released, write_limit, write_calls, write_stalls, fail_after;
 static atomic_int written_bytes, partial_writes, injected_stalls;
 static atomic_int tamper_armed, tamper_header_remaining, tampered_reads;
+static atomic_int boundary_target = -1;
+static atomic_int boundary_waiting, boundary_released, boundary_timed_out;
+static void fixture_pause(void) {
+#ifdef _WIN32
+  Sleep(1);
+#else
+  const struct timespec pause = {0, 1000000};
+  nanosleep(&pause, NULL);
+#endif
+}
+/* Test-only rendezvous after successful native I/O, before returning to Poll.
+ * The worker only cancels a public token; it never accesses stream state. */
+static void boundary_pause(int direction, int32_t code, intptr_t count) {
+  int expected = direction;
+  int reached = direction == 2 ? code != 0 : !code && count > 0;
+  if (!reached || !atomic_compare_exchange_strong(&boundary_target, &expected, -1)) return;
+  atomic_store(&boundary_waiting, 1);
+  for (int i = 0; i < 10000 && !atomic_load(&boundary_released); ++i) fixture_pause();
+  if (!atomic_load(&boundary_released)) atomic_store(&boundary_timed_out, 1);
+}
+void nyra_tls_test_boundary_arm(int32_t direction) {
+  atomic_store(&boundary_waiting, 0); atomic_store(&boundary_released, 0);
+  atomic_store(&boundary_timed_out, 0); atomic_store(&boundary_target, direction);
+}
+int32_t nyra_tls_test_boundary_wait(void) {
+  for (int i = 0; i < 5000 && !atomic_load(&boundary_waiting); ++i) fixture_pause();
+  return atomic_load(&boundary_waiting);
+}
+void nyra_tls_test_boundary_release(void) { atomic_store(&boundary_released, 1); }
+int32_t nyra_tls_test_boundary_hit(void) {
+  return atomic_load(&boundary_timed_out) ? -1 : atomic_load(&boundary_waiting);
+}
 
 #ifdef _WIN32
 static INIT_ONCE winsock_once = INIT_ONCE_STATIC_INIT;
@@ -77,6 +109,7 @@ int32_t net_core_os_read(intptr_t handle, uint8_t *data, intptr_t size, intptr_t
       atomic_store(&tamper_armed, 0); atomic_fetch_add(&tampered_reads, 1);
     }
   }
+  boundary_pause(0, code, *out);
   return code;
 }
 void nyra_tls_test_arm_tamper(void) {
@@ -89,7 +122,10 @@ int32_t net_core_os_write(intptr_t handle, const uint8_t *data, intptr_t size, i
   *out = 0;
   int fail = atomic_load(&fail_after);
   int sent = atomic_load(&written_bytes);
-  if (fail >= 0 && sent >= fail) { error->kind = NC_RESET; error->native_code = TEST_RESET; return NC_RESET; }
+  if (fail >= 0 && sent >= fail) {
+    error->kind = NC_RESET; error->native_code = TEST_RESET;
+    boundary_pause(2, NC_RESET, 0); return NC_RESET;
+  }
   int stalls = atomic_load(&write_stalls);
   if (stalls && call % stalls == 0) {
     atomic_fetch_add(&injected_stalls, 1);
@@ -104,6 +140,7 @@ int32_t net_core_os_write(intptr_t handle, const uint8_t *data, intptr_t size, i
     atomic_fetch_add(&written_bytes, (int)*out);
     if (*out < size) atomic_fetch_add(&partial_writes, 1);
   }
+  boundary_pause(1, rc, *out);
   return rc;
 }
 void nyra_tls_test_write_controls(int32_t limit, int32_t stalls, int32_t fail) {
@@ -206,6 +243,7 @@ done:
 int32_t nyra_tls_test_server_start(int32_t mode, int32_t size) {
   if (running || size < 0 || size > 1048576) return -1;
   nyra_tls_test_write_controls(0, 0, -1);
+  nyra_tls_test_boundary_arm(-1);
   atomic_store(&tamper_armed, 0); atomic_store(&tampered_reads, 0);
 #ifdef _WIN32
   if (!InitOnceExecuteOnce(&winsock_once, fixture_winsock_init, NULL, NULL)) return -2;

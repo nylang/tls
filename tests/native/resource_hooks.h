@@ -7,7 +7,9 @@
 #include <openssl/sslerr.h>
 #include <stdlib.h>
 
-SSL_CTX *nyra_tls_test_ctx_new(const SSL_METHOD *method);
+OSSL_LIB_CTX *nyra_tls_test_provider_new(void);
+void nyra_tls_test_provider_free(OSSL_LIB_CTX *provider);
+SSL_CTX *nyra_tls_test_ctx_new(OSSL_LIB_CTX *provider, const char *properties, const SSL_METHOD *method);
 void nyra_tls_test_ctx_free(SSL_CTX *context);
 int nyra_tls_test_trust(SSL_CTX *context, const char *path);
 void *nyra_tls_test_calloc(size_t count, size_t size);
@@ -23,7 +25,9 @@ long nyra_tls_test_ctrl(SSL *ssl, int command, long argument, void *pointer);
 int nyra_tls_test_alpn(SSL *ssl, const unsigned char *protocols, unsigned int size);
 
 #ifdef NYRA_TLS_TEST_RESOURCE_INJECTION
-#define SSL_CTX_new nyra_tls_test_ctx_new
+#define OSSL_LIB_CTX_new nyra_tls_test_provider_new
+#define OSSL_LIB_CTX_free nyra_tls_test_provider_free
+#define SSL_CTX_new_ex nyra_tls_test_ctx_new
 #define SSL_CTX_free nyra_tls_test_ctx_free
 #define SSL_CTX_load_verify_file nyra_tls_test_trust
 #define calloc nyra_tls_test_calloc

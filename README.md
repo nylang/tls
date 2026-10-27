@@ -15,6 +15,7 @@ defect; use an explicit compatible source candidate with the public SDK runtime
 until a fixed SDK is accepted. No SDK promotion is implied by local TLS acceptance.
 
 - Move-only `TlsSession` owns private native state and releases it through drop.
+  Each client has an independent OpenSSL library context and algorithm cache.
 - Explicit PEM CA file, mandatory certificate-chain and DNS/IP SAN verification.
   DNS peers use SNI. IP peers verify iPAddress SAN and do not send IP SNI.
 - TLS 1.2/1.3 only, no early-data API, compression or renegotiation; optional ALPN.

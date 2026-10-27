@@ -105,6 +105,9 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
       if ready_error != nil { return tls_stream_fail(state, tls_stream_transport_error(ready_error as NetError)); }
     }
     let flushed: Result<bool, TlsStreamError> = tls_stream_flush(state);
+    // Final socket progress must not publish success or an error ahead of controls.
+    let after_flush: TlsStreamError? = tls_stream_control(state);
+    if after_flush != nil { return tls_stream_fail(state, after_flush as TlsStreamError); }
     let flush_error: TlsStreamError? = flushed.get_if<TlsStreamError>();
     if flush_error != nil { return tls_stream_fail(state, flush_error as TlsStreamError); }
     if !((flushed.get_if<bool>()) as bool) {

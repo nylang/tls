@@ -1,0 +1,155 @@
+{
+  "format": "nyra-tls-control-boundary-acceptance-v1",
+  "date": "2026-10-27",
+  "status": "passed",
+  "scope": "Local source candidates; no SDK promotion, package publication, public API or stream-affinity change",
+  "previous_acceptance": "handshake-resource-acceptance-2026-10-27.json",
+  "production_fix": {
+    "path": "private/stream_poll.ny",
+    "before_sha256": "87fdf39cd8711cdce51c4504cde8c0278afb1dce3a1735b6b1d6f03dd107e1e4",
+    "after_sha256": "59b1a22bf621caad9330949501031f8df2301a44e58db8b626fa136f5dfd0fb0",
+    "behavior": "Recheck cancellation/deadline immediately after ciphertext flush, before interpreting its native error or publishing operation success. Preserve TLS-accepted plaintext progress.",
+    "before_fix": {
+      "method": "Run the same eight new stream cases against the prior accepted Poll using the compatible native compiler/public SDK runtime and previously accepted pinned native libraries",
+      "tests": {
+        "package": "tls",
+        "status": "FAILED",
+        "passed": 27,
+        "failed": 4,
+        "ignored": 0,
+        "ran": 31,
+        "skipped": 0,
+        "exit_code": 1
+      },
+      "failed_cases": [
+        "test_tls_stream_cancel_during_final_flush",
+        "test_tls_stream_deadline_during_final_flush",
+        "test_tls_stream_cancel_precedes_deadline_during_final_flush",
+        "test_tls_stream_cancel_precedes_native_flush_error"
+      ],
+      "output": "BEGIN test_tls_default_and_validation\nEND   test_tls_default_and_validation PASS\nBEGIN test_tls_move_and_idempotent_close\nEND   test_tls_move_and_idempotent_close PASS\nBEGIN test_tls_handshake_output_and_bounded_input\nEND   test_tls_handshake_output_and_bounded_input PASS\nBEGIN test_tls_controls_cancel_before_timeout\nEND   test_tls_controls_cancel_before_timeout PASS\nBEGIN test_tls_deadline_retires_pending_output\nEND   test_tls_deadline_retires_pending_output PASS\nBEGIN test_tls_drop_cycles\nEND   test_tls_drop_cycles PASS\nBEGIN test_tls_stream_patterned_short_writes_and_shutdown\nEND   test_tls_stream_patterned_short_writes_and_shutdown PASS\nBEGIN test_tls_stream_admission_budget_and_move\nEND   test_tls_stream_admission_budget_and_move PASS\nBEGIN test_tls_stream_handshake_absolute_deadline\nEND   test_tls_stream_handshake_absolute_deadline PASS\nBEGIN test_tls_stream_wakeable_cancel\nEND   test_tls_stream_wakeable_cancel PASS\nBEGIN test_tls_stream_transport_failure_preserves_progress\nEND   test_tls_stream_transport_failure_preserves_progress PASS\nBEGIN test_tls_stream_close_callback_observes_terminal_state\nEND   test_tls_stream_close_callback_observes_terminal_state PASS\nBEGIN test_tls_stream_poll_callback_can_enqueue_and_close\nEND   test_tls_stream_poll_callback_can_enqueue_and_close PASS\nBEGIN test_tls_stream_truncation_after_plaintext_prefix\nEND   test_tls_stream_truncation_after_plaintext_prefix PASS\nBEGIN test_tls_stream_verification_failure_is_terminal\nEND   test_tls_stream_verification_failure_is_terminal PASS\nBEGIN test_tls_stream_drop_and_descriptor_recovery\nEND   test_tls_stream_drop_and_descriptor_recovery PASS\nBEGIN test_tls_stream_cancel_preserves_plaintext_prefix\nEND   test_tls_stream_cancel_preserves_plaintext_prefix PASS\nBEGIN test_tls_stream_read_deadline\nEND   test_tls_stream_read_deadline PASS\nBEGIN test_tls_stream_shutdown_deadline\nEND   test_tls_stream_shutdown_deadline PASS\nBEGIN test_tls_stream_admission_controls_and_empty_io\nEND   test_tls_stream_admission_controls_and_empty_io PASS\nBEGIN test_tls_stream_future_drop_does_not_cancel\nEND   test_tls_stream_future_drop_does_not_cancel PASS\nBEGIN test_tls_stream_key_update_preserves_bidirectional_traffic\nEND   test_tls_stream_key_update_preserves_bidirectional_traffic PASS\nBEGIN test_tls_stream_tampered_record_retires_without_plaintext\nEND   test_tls_stream_tampered_record_retires_without_plaintext PASS\nBEGIN test_tls_stream_cancel_during_final_flush\nEND   test_tls_stream_cancel_during_final_flush FAIL\nBEGIN test_tls_stream_deadline_during_final_flush\nEND   test_tls_stream_deadline_during_final_flush FAIL\nBEGIN test_tls_stream_cancel_precedes_deadline_during_final_flush\nEND   test_tls_stream_cancel_precedes_deadline_during_final_flush FAIL\nBEGIN test_tls_stream_cancel_precedes_native_flush_error\nEND   test_tls_stream_cancel_precedes_native_flush_error FAIL\nBEGIN test_tls_stream_cancel_after_native_read_before_plaintext\nEND   test_tls_stream_cancel_after_native_read_before_plaintext PASS\nBEGIN test_tls_stream_shutdown_cancel_after_local_alert\nEND   test_tls_stream_shutdown_cancel_after_local_alert PASS\nBEGIN test_tls_stream_close_pending_write_after_cancel\nEND   test_tls_stream_close_pending_write_after_cancel PASS\nBEGIN test_tls_stream_shutdown_callback_and_late_cancel\nEND   test_tls_stream_shutdown_callback_and_late_cancel PASS\ntest result: 27 passed; 4 failed; 0 ignored\ntransfer carries a failure\ncompletion observes retired owners and detached payload\ntest child exit: 125\ntransfer carries a failure\ncompletion observes retired owners and detached payload\ntest child exit: 125\ntransfer carries a failure\ncompletion observes retired owners and detached payload\ntest child exit: 125\nTLS failures retain their named category\ntest child exit: 125\n"
+    }
+  },
+  "method": "Test-only read/write/send-error rendezvous blocks the caller-thread native return while a worker cancels a public token or waits for the absolute deadline. Both rendezvous entry and non-timeout release are asserted. Worker never accesses stream state.",
+  "limitations": [
+    "Controlled loopback interleavings only; no exhaustive scheduler, TLS-version, readiness/error, shutdown/cancel or malformed-post-handshake matrix",
+    "Control checks define observation points; cancellation and Future publication are not an atomic cross-thread transaction",
+    "Only test fixtures block native returns; product I/O remains nonblocking and caller-driven",
+    "TLS-accepted bytes are not remote acknowledgements; no new replay guarantee",
+    "macOS/Linux bridge/harness use ASan/UBSan; upstream OpenSSL libraries are not claimed sanitized; Windows is unsanitized",
+    "macOS x86_64, mobile, system trust, portable public SDK/release delivery and other roadmap gates remain open"
+  ],
+  "hosts": {
+    "darwin-arm64": {
+      "receipt": "control-boundary-acceptance-2026-10-27-darwin-arm64.json",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_scenarios": 60,
+      "bridge_test_asan_ubsan": true,
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "c14b42f25af72d56c0b369150333de6b855901432062d501e5917ba1100fa837",
+      "sdk_runtime_version": "1.0.0",
+      "provider_input_sha256": {
+        "/Volumes/Work/Workspace/NyraLang/third_party/tls/private/native/tls_engine.c": "d3995186540f7aa56be256dd205180f31abcc7861d655a124df77d1aff0149ce",
+        "/Volumes/Work/Workspace/NyraLang/third_party/tls/private/native/tls_engine.h": "eeb56c105cb85da2442af36d9afa755a1605ec16a963afc058ec729dddbe5177",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libssl.a": "2ea2bce75afb631120c765d24afb63fc52461cddc07fef155c955a31ac102752",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libcrypto.a": "2042ed505b6769eaadb367b6946c01e3d8eea873b44b749d1694fcf3f8f05da9"
+      },
+      "native_runtime_injected_failures": 2519,
+      "targeted_stability": {
+        "format": "nyra-tls-control-stability-v1",
+        "status": "passed",
+        "binary_sha256": "a14075e2083701e1fdf4c74770750fdd6add743d4b15a60c7278e560aae64426",
+        "rounds": 10,
+        "cases": [
+          "test_tls_stream_cancel_during_final_flush",
+          "test_tls_stream_deadline_during_final_flush",
+          "test_tls_stream_cancel_precedes_deadline_during_final_flush",
+          "test_tls_stream_cancel_precedes_native_flush_error",
+          "test_tls_stream_cancel_after_native_read_before_plaintext",
+          "test_tls_stream_shutdown_cancel_after_local_alert",
+          "test_tls_stream_close_pending_write_after_cancel",
+          "test_tls_stream_shutdown_callback_and_late_cancel"
+        ],
+        "passed": 80,
+        "scope": "Eight deterministic boundary/retirement cases; each invocation uses the accepted test binary with its case index"
+      },
+      "ordinary_native_archive_hook_symbols": [],
+      "production_fixture_imports": []
+    },
+    "linux-x86_64": {
+      "receipt": "control-boundary-acceptance-2026-10-27-linux-x86_64.json",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_scenarios": 60,
+      "bridge_test_asan_ubsan": true,
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "99f4bd3238185b99a5840d0da96a463afae1a96eaaa06aae0a5a4a821d4f766a",
+      "sdk_runtime_version": "1.0.1",
+      "provider_input_sha256": {
+        "/runner/tls-dev-20261027/third_party/tls/private/native/tls_engine.c": "d3995186540f7aa56be256dd205180f31abcc7861d655a124df77d1aff0149ce",
+        "/runner/tls-dev-20261027/third_party/tls/private/native/tls_engine.h": "eeb56c105cb85da2442af36d9afa755a1605ec16a963afc058ec729dddbe5177",
+        "/runner/tls-dev-20261027/openssl/openssl-3.5.9/libssl.a": "f355167951857505b5b0305fd2e8ea8f224fa29d780211175d32767b07234727",
+        "/runner/tls-dev-20261027/openssl/openssl-3.5.9/libcrypto.a": "32af35c4402f018e652cd692f0a4b14472e37453c71761b0e9e428d8cfe20dd8"
+      },
+      "native_runtime_injected_failures": 2545,
+      "targeted_stability": {
+        "format": "nyra-tls-control-stability-v1",
+        "status": "passed",
+        "binary_sha256": "51bdd6d8b6c3de245efbae90d347005fed7c35ce445b933eba889fe11af48d0b",
+        "rounds": 10,
+        "cases": [
+          "test_tls_stream_cancel_during_final_flush",
+          "test_tls_stream_deadline_during_final_flush",
+          "test_tls_stream_cancel_precedes_deadline_during_final_flush",
+          "test_tls_stream_cancel_precedes_native_flush_error",
+          "test_tls_stream_cancel_after_native_read_before_plaintext",
+          "test_tls_stream_shutdown_cancel_after_local_alert",
+          "test_tls_stream_close_pending_write_after_cancel",
+          "test_tls_stream_shutdown_callback_and_late_cancel"
+        ],
+        "passed": 80,
+        "scope": "Eight deterministic boundary/retirement cases; each invocation uses the accepted test binary with its case index"
+      },
+      "ordinary_native_archive_hook_symbols": [],
+      "production_fixture_imports": []
+    },
+    "windows-x86_64": {
+      "receipt": "control-boundary-acceptance-2026-10-27-windows-x86_64.json",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_scenarios": 60,
+      "bridge_test_asan_ubsan": false,
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "b255a868276022bbd8a4c0349ebb48dc31afec899cef03e1910733060ccaf056",
+      "sdk_runtime_version": "1.0.1",
+      "provider_input_sha256": {
+        "E:\\workspace\\tls-dev-20261027\\third_party\\tls\\private\\native\\tls_engine.c": "d3995186540f7aa56be256dd205180f31abcc7861d655a124df77d1aff0149ce",
+        "E:\\workspace\\tls-dev-20261027\\third_party\\tls\\private\\native\\tls_engine.h": "eeb56c105cb85da2442af36d9afa755a1605ec16a963afc058ec729dddbe5177",
+        "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libssl.lib": "271e1299c1b227104ca14e71e5e92e4384bbbbe1777b4c78d9dd7f61a3899790",
+        "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libcrypto.lib": "e247ca8ce93ad287b9c5a7a35d5fcf5b7ca28aa8ab2252c0a83ebb711dc9ae87"
+      },
+      "native_runtime_injected_failures": 2551,
+      "targeted_stability": {
+        "format": "nyra-tls-control-stability-v1",
+        "status": "passed",
+        "binary_sha256": "88446415191ee2d94aa09fc7fda84fe4c8423f52aa66c9f379eb29d3bc6cf082",
+        "rounds": 10,
+        "cases": [
+          "test_tls_stream_cancel_during_final_flush",
+          "test_tls_stream_deadline_during_final_flush",
+          "test_tls_stream_cancel_precedes_deadline_during_final_flush",
+          "test_tls_stream_cancel_precedes_native_flush_error",
+          "test_tls_stream_cancel_after_native_read_before_plaintext",
+          "test_tls_stream_shutdown_cancel_after_local_alert",
+          "test_tls_stream_close_pending_write_after_cancel",
+          "test_tls_stream_shutdown_callback_and_late_cancel"
+        ],
+        "passed": 80,
+        "scope": "Eight deterministic boundary/retirement cases; each invocation uses the accepted test binary with its case index"
+      },
+      "ordinary_native_archive_hook_symbols": [],
+      "production_fixture_imports": []
+    }
+  }
+}

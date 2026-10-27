@@ -44,8 +44,9 @@ failure sets the error queue. The constructor distinguishes these cases before
 considering a DNS identity, so resource failure cannot silently cause DNS fallback
 or IP SNI. Explicit CA-loading failure still reports TrustUnavailable.
 
-Acceptance injects eleven constructor failure scenarios into a separately compiled
-bridge object. It counts bridge-owned context references, SSL sessions, state
+Acceptance injects twelve constructor failure scenarios into a separately compiled
+bridge object. It counts private library contexts, bridge-owned SSL context
+references, SSL sessions, state
 storage and unattached BIO endpoints, including synthetic failure before BIO
 adoption; each scenario repeats eight failure/healthy-recovery rounds. This does
 not instrument arbitrary allocations inside OpenSSL or the Nyra runtime. Ordinary
@@ -103,6 +104,44 @@ partial-send rules; no separate public key-update operation is required.
 The accepted cases cover four consecutive updates with and without reply
 requests, and a requested update followed by a 64 KiB TCP/Future transfer under
 forced short sends/WouldBlock. This is not a complete post-handshake matrix.
+
+## Runtime allocation failures
+
+Each client owns an independent OpenSSL library context, used by SSL_CTX_new_ex
+for algorithm fetching. Lazy provider registration and algorithm caches are not
+shared between client sessions. The session releases SSL/BIO owners before its
+library context; constructor rollback releases the temporary SSL_CTX reference
+before freeing the context. The public API and explicit PEM verification policy
+are unchanged. Creating a session performs independent provider initialization;
+this isolation does not claim shared-context performance or a provider-memory cap.
+
+Fatal operations inspect the complete provider error queue after SSL_get_error,
+including allocation errors hidden beneath later SSL wrapper errors. An observed
+malloc failure or X509 out-of-memory result reports ResourceExhausted with zero
+new plaintext and terminal protocol state. When the provider discards the
+allocation diagnostic, the existing terminal provider error fallback applies:
+Protocol, or CertificateRejected/PeerNameMismatch when verification retained that
+result. The bridge cannot infer the lost allocation cause. Optional
+provider allocation failures can be tolerated when OpenSSL completes successfully.
+
+The runtime allocation harness installs CRYPTO_set_mem_functions before provider
+initialization in a fresh test process for each allocation index. It measures a
+healthy operation, then independently fails each observed allocation in that
+operation. Covered steps are the initial ClientHello, an authenticated read, the
+first application write and first close_notify for TLS 1.2/1.3, plus a TLS 1.3
+requested-KeyUpdate read. A later increment also sweeps all client handshake
+steps after the initial ClientHello through authentication/completion in TLS
+1.2/1.3. Peer work and relay storage are outside the injection window. A step
+with no observed allocation has a healthy baseline
+only. Each run validates plaintext/counts or terminal retirement, creates a healthy
+replacement connection in the same process, and checks that hook-tracked provider
+allocations reach zero after OPENSSL_cleanup. Allocator hooks exist only in the
+test executable; the bridge and production process retain their normal allocators.
+
+This is a bounded, single-failure sweep of observed operation-window allocations.
+It does not cover every certificate/algorithm/provider configuration, failure-only
+allocation branch, repeated/simultaneous OOM, renegotiation, or Nyra runtime allocations. Provider
+static libraries are not claimed to have been built with sanitizers.
 
 ## Native API correctness
 
