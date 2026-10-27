@@ -50,7 +50,8 @@ runtime. Other hosts, complete fault matrices and release acceptance remain T3.
       explicit CA-only support; never infer Keychain support from OpenSSL defaults.
 - [ ] Android/iOS static builds, matching SDK/sysroot links and mobile runtime checks.
 - [ ] Standalone public-SDK CI, source/dependency lock, licenses and portable consumers.
-- [ ] Public repository origin and release artifacts, with exact source/library receipts.
+- [x] Public source repository at https://github.com/nylang/tls.
+- [ ] Release artifacts, with exact source/library receipts.
 - [ ] Recheck upstream advisories/pin before release and pass the complete advertised matrix.
 
 Server configuration, mutual TLS and session resumption have no current public
