@@ -88,10 +88,14 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
   X509_VERIFY_PARAM *param = SSL_get0_param(s->ssl);
   X509_VERIFY_PARAM_set_hostflags(param, X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS | X509_CHECK_FLAG_NEVER_CHECK_SUBJECT);
   /* IP identities use iPAddress SAN verification and never emit an IP SNI name. */
+  ERR_clear_error();
   if (!X509_VERIFY_PARAM_set1_ip_asc(param, name)) {
-    ERR_clear_error();
-    if (!dns_name_ok(name) || !SSL_set1_host(s->ssl, name) ||
-        !SSL_set_tlsext_host_name(s->ssl, name)) { error = NTLS_ARGUMENT; goto done; }
+    /* The pinned provider reports invalid IP syntax without an error, but
+     * allocation failure on a valid IP sets the error queue. Never retry that
+     * failure as a DNS identity or accidentally emit IP SNI. */
+    if (ERR_peek_error()) goto done;
+    if (!dns_name_ok(name)) { error = NTLS_ARGUMENT; goto done; }
+    if (!SSL_set1_host(s->ssl, name) || !SSL_set_tlsext_host_name(s->ssl, name)) goto done;
   }
   if (alpn_size) {
     uint8_t protocols[256]; protocols[0] = (uint8_t)alpn_size;

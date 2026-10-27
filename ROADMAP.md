@@ -17,8 +17,22 @@ The compiler language pipeline is unchanged.
 - [x] net_core byte ranges, monotonic deadlines and cancellation precedence.
 - [x] macOS native behavior, sanitized bridge tests, public-SDK facade tests,
       isolated replays and production fixture isolation.
-- [ ] Broader invalid certificate chains, certificate limits, allocation failures,
-      tampered records, write/read transition faults and TLS 1.3 post-handshake traffic.
+- [x] TLS 1.2/1.3 altered authentication tags and replayed records release no
+      unauthenticated/duplicate plaintext, fail terminally and preserve fresh sessions.
+- [x] Four-cycle TLS 1.3 peer KeyUpdate sequences with and without requested replies,
+      exact non-requesting responses and bidirectional application traffic.
+- [x] Pending-read capacity rejection and caller-buffer replacement without retaining
+      or modifying abandoned caller storage.
+- [x] Complete/missing/wrong-key intermediate chains, CA constraints, server EKU,
+      future validity, eight/nine-intermediate depth and below/above-256-KiB certificates.
+- [x] Eleven constructor failure scenarios, each with eight rollback/recovery rounds;
+      identity allocation errors stay ResourceExhausted and IP failures never retry as DNS/SNI.
+- [ ] Additional certificate algorithms/critical extensions, provider-internal and
+      runtime-operation allocation failures, remaining transition faults and post-handshake messages.
+
+The [certificate/constructor acceptance](docs/certificate-resource-acceptance-2026-10-27.json)
+records the selected chain/size boundaries and scoped bridge-owner fault injection.
+These checks do not claim exhaustive provider allocation failure or CA-store memory bounds.
 
 This is a client engine foundation. T1 completion does not claim a complete TLS
 stream, system-trust integration, cross-platform acceptance or package release.
@@ -41,11 +55,23 @@ fixture isolation. See [stream contracts](docs/stream.md) and
 ARC-backed facades with deleted copy must be moved, never implicitly cloned.
 The published SDK compilers remain unsupported for this stream until that fix
 is released; the runner supports an explicit native candidate and public SDK
-runtime. Other hosts, complete fault matrices and release acceptance remain T3.
+runtime. The subsequent [desktop acceptance](docs/desktop-acceptance-2026-10-27.json)
+records the same 21 cases/replays and 19 native cases on macOS arm64, Linux x86_64
+and Windows x86_64. macOS/Linux bridge cases use ASan/UBSan; Windows does not.
+Windows also passes 40 targeted repetitions of the four fixture-sensitive cases.
+The [protocol increment](docs/protocol-acceptance-2026-10-27.json) then passes
+23 TLS cases/replays and 26 native cases on the same three hosts, including
+requested-key-update stream transfers under short writes/WouldBlock and
+tampered-input failure retirement followed by a healthy connection.
+Remaining hosts, complete fault matrices and release acceptance remain T3.
 
 ## T3 — Platform trust and delivery
 
-- [ ] Linux/Windows native compilation and behavior; macOS x86_64 acceptance.
+- [x] Linux x86_64 native compilation and behavior: 23 TLS cases, 23 isolated
+      replays and 48 ASan/UBSan native scenarios using a fixed native compiler candidate.
+- [x] Windows x86_64 native compilation and behavior: 23 TLS cases, 23 isolated
+      replays and 48 unsanitized native scenarios; prior fixture-stability evidence is retained.
+- [ ] macOS x86_64 acceptance.
 - [ ] Explicit system-trust integration per advertised platform, or retain documented
       explicit CA-only support; never infer Keychain support from OpenSSL defaults.
 - [ ] Android/iOS static builds, matching SDK/sysroot links and mobile runtime checks.

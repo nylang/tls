@@ -26,6 +26,8 @@ until a fixed SDK is accepted. No SDK promotion is implied by local TLS acceptan
 - Absolute net_core deadlines and cancellation checks on every protocol step;
   cancellation wins over timeout and retires the engine.
 - Authenticated `close_notify` is distinct from unexpected transport EOF.
+- Peer TLS 1.3 key updates preserve bidirectional traffic under partial transport
+  progress; altered/replayed records fail without publishing unauthenticated plaintext.
 - `TlsStream` moves TCP ownership on successful construction and owns one bounded
   readiness driver. `HandshakeAsync`, `ReadAsync`, `WriteAllAsync` and
   `ShutdownAsync` return local Futures driven explicitly by `Poll`.
@@ -44,14 +46,19 @@ retained when FeedCiphertext admits only part of a buffer.
 
 ## Build and verify
 
-Build tools require Python 3.12+, Perl, Make and a host C compiler. All generated
+Build tools require Python 3.12+, Perl, Make and a host C compiler. Windows uses
+native Strawberry Perl and an x64 Visual Studio Developer Command Prompt with
+NMake; the initial Windows provider build disables assembly. All generated
 outputs must be outside this package. An explicitly selected public Nyra SDK,
 sibling net_core checkout and OpenSSL CLI 3.5+ are needed for full acceptance.
+Use `--build-cli` to build that CLI from the same checksum-pinned provider source;
+acceptance selects it automatically when present. `--openssl-cli` selects an
+explicit alternative for test certificates.
 The CLI generates only temporary test certificates; the bridge always links the
 pinned 3.5.9 static libraries.
 
 ```sh
-python3 scripts/build_openssl.py --out-dir /absolute/cache/openssl-build
+python3 scripts/build_openssl.py --out-dir /absolute/cache/openssl-build --build-cli
 python3 scripts/accept.py \
   --sdk /absolute/path/to/nyra-sdk \
   --compiler /absolute/path/to/compatible/nyrac \
@@ -76,10 +83,19 @@ python3 scripts/accept_native.py \
   --out-dir /absolute/cache/tls-native --sanitize
 ```
 
-Applications link `libtls_native.a`, the matching `libssl.a`/`libcrypto.a`,
+On Windows run the same scripts with native Python in the developer prompt,
+pass `--perl` to the provider builder when Perl is outside PATH, and use
+`--no-sanitize` for the full acceptance run if the selected C toolchain has no
+compatible ASan/UBSan runtime. Receipts record this omission; an unsanitized
+Windows result does not establish sanitizer coverage.
+
+Applications link `libtls_native.a`, the matching `libssl.a`/`libcrypto.a`
+(`libssl.lib`/`libcrypto.lib` for the MSVC provider build),
 net_core's native library and Nyra's platform runtime. POSIX may also need
-`-pthread`/`-ldl`. No OpenSSL pointers or private bridge ABI are exported from
+`-lpthread`/`-ldl`. Windows also needs OpenSSL's `ws2_32`, `gdi32`, `advapi32`,
+`crypt32` and `user32`, plus net_core's `iphlpapi` system library.
+No OpenSSL pointers or private bridge ABI are exported from
 `tls.ny`. Source manifests use the NyraLang workspace dependency layout; portable
-package distribution and other-host acceptance remain open.
+package distribution and unrecorded host acceptance remain open.
 
 [Acceptance and retained receipt](tests/README.md); [remaining roadmap](ROADMAP.md).

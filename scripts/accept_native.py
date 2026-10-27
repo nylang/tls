@@ -9,24 +9,33 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+from native_support import static_libraries, system_libraries
+from certificate_fixtures import generate as generate_certificate_fixtures
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--openssl-root', type=Path, required=True)
-    parser.add_argument('--openssl-cli', default='openssl', help='CLI for test-only certificate generation')
+    parser.add_argument('--openssl-cli', help='CLI for test-only certificates; defaults to the pinned build CLI when present')
     parser.add_argument('--out-dir', type=Path, required=True)
     parser.add_argument('--cc', default=os.environ.get('CC') or 'clang')
     parser.add_argument('--sanitize', action='store_true')
     args = parser.parse_args()
     output = args.out_dir.expanduser().resolve()
     ssl = args.openssl_root.expanduser().resolve()
+    windows = platform.system() == 'Windows'
+    local_cli = ssl / 'apps' / ('openssl.exe' if windows else 'openssl')
+    args.openssl_cli = args.openssl_cli or (str(local_cli) if local_cli.is_file() else 'openssl')
+    executable = output / ('engine-test.exe' if windows else 'engine-test')
     if output == PACKAGE or PACKAGE in output.parents:
         parser.error('use an external output directory')
     if output.exists() and any(output.iterdir()):
         parser.error('--out-dir must be new or empty')
     output.mkdir(parents=True, exist_ok=True)
+    config = output / 'openssl-test.cnf'
+    config.write_text('[req]\ndistinguished_name = dn\n[dn]\n')
+    environment = os.environ | {'OPENSSL_CONF': str(config)}
     report = {'format': 'nyra-tls-native-acceptance-v1', 'status': 'running',
               'host': platform.platform(), 'sanitizers': args.sanitize, 'commands': [],
               'source_sha256': {p.relative_to(PACKAGE).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -38,7 +47,7 @@ def main() -> int:
         number = len(report['commands'])
         report['commands'].append(command); save()
         print('BEGIN TLS step ' + str(number), flush=True)
-        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, env=environment)
         (output / ('step-' + str(number) + '.log')).write_text(result.stdout + result.stderr)
         result.check_returncode()
         print('END TLS step ' + str(number), flush=True)
@@ -64,16 +73,34 @@ def main() -> int:
         run([args.openssl_cli, 'x509', '-req', '-in', str(output / 'peer.csr'), '-CA', str(output / 'ca.pem'),
              '-CAkey', str(output / 'ca.key'), '-CAcreateserial', '-days', '2', '-sha256',
              '-extfile', str(output / 'cn-only.ext'), '-out', str(output / 'cn-only.pem')])
+        generate_certificate_fixtures(run, output, args.openssl_cli)
         flags = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
         run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
              '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
              str(PACKAGE / 'tests/native/engine_test.c'),
-             str(PACKAGE / 'private/native/tls_engine.c'), str(ssl / 'libssl.a'), str(ssl / 'libcrypto.a'),
-             '-pthread', *(['-ldl'] if platform.system() == 'Linux' else []), '-o', str(output / 'engine-test')])
-        result = run([str(output / 'engine-test'), *[str(output / name) for name in ('ca.pem', 'peer.pem', 'peer.key', 'other.pem', 'expired.pem', 'cn-only.pem')]])
+             str(PACKAGE / 'private/native/tls_engine.c'), *map(str, static_libraries(ssl, windows)),
+             *system_libraries(windows, platform.system() == 'Linux'), '-o', str(executable)])
+        result = run([str(executable), *[str(output / name) for name in ('ca.pem', 'peer.pem', 'peer.key', 'other.pem', 'expired.pem', 'cn-only.pem')], str(output)])
         report['cases'] = [line[5:] for line in result.splitlines() if line.startswith('PASS ')]
         if not report['cases']:
             raise ValueError('no native behavior cases executed')
+        injected = output / 'resource-engine.o'
+        resource_executable = output / ('resource-test.exe' if windows else 'resource-test')
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+             '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
+             '-include', str(PACKAGE / 'tests/native/resource_hooks.h'),
+             '-DNYRA_TLS_TEST_RESOURCE_INJECTION', '-c', str(PACKAGE / 'private/native/tls_engine.c'),
+             '-o', str(injected)])
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+             '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
+             str(PACKAGE / 'tests/native/resource_test.c'), str(injected),
+             *map(str, static_libraries(ssl, windows)),
+             *system_libraries(windows, platform.system() == 'Linux'), '-o', str(resource_executable)])
+        resources = run([str(resource_executable), str(output / 'ca.pem')])
+        report['resource_cases'] = [line[5:] for line in resources.splitlines() if line.startswith('PASS ')]
+        if len(report['resource_cases']) != 11:
+            raise ValueError('not all constructor resource-failure scenarios executed')
+        report['cases'].extend(report['resource_cases'])
         report['native'] = json.loads((output / 'native/native-manifest.json').read_text())
         for name, expected in report['source_sha256'].items():
             if hashlib.sha256((PACKAGE / name).read_bytes()).hexdigest() != expected:

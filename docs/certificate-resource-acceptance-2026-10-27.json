@@ -1,0 +1,106 @@
+{
+  "format": "nyra-tls-certificate-resource-acceptance-v1",
+  "date": "2026-10-27",
+  "status": "passed",
+  "scope": "Local source-candidate validation; no SDK promotion, package publication or public API/ownership change",
+  "previous_acceptance": "protocol-acceptance-2026-10-27.json",
+  "certificate_cases": [
+    "complete intermediate chain is accepted with only its root trusted",
+    "missing intermediate fails closed without issuer retrieval",
+    "an intermediate with the wrong signing key is rejected",
+    "CA:FALSE intermediate cannot authorize a leaf",
+    "intermediate pathLenConstraint is enforced",
+    "clientAuth-only leaf cannot authenticate a TLS server",
+    "not-yet-valid leaf is rejected",
+    "eight intermediate certificates meet the configured verification depth",
+    "nine intermediate certificates exceed the configured verification depth",
+    "valid certificate below the 256 KiB message limit is accepted",
+    "certificate above the 256 KiB message limit fails terminally"
+  ],
+  "constructor_resource_cases": [
+    "TLS context allocation failure rolls back",
+    "trust loading failure rolls back",
+    "bridge state allocation failure rolls back",
+    "TLS session allocation failure rolls back",
+    "BIO pair creation failure rolls back",
+    "unadopted BIO endpoints both roll back",
+    "DNS verification allocation failure is ResourceExhausted",
+    "IPv4 verification allocation failure cannot fall back to DNS/SNI",
+    "IPv6 verification allocation failure cannot fall back to DNS/SNI",
+    "SNI allocation failure is ResourceExhausted",
+    "ALPN allocation failure rolls back"
+  ],
+  "failure_repetitions_per_resource_scenario": 8,
+  "healthy_recoveries_per_resource_scenario": 8,
+  "resource_scope": "Bridge-owned resource acquisition/adoption/release at provider API boundaries. No arbitrary provider-internal or Nyra-runtime allocator replacement.",
+  "constructor_fix": {
+    "path": "private/native/tls_engine.c",
+    "before_sha256": "e127ea31d44271d07280f6fc0b9509b9424f69610b4dd7fa606d6a5a3fa2fcfb",
+    "after_sha256": "8c76a07f21a71686c9f35ad87a720018568dce561453b968570ea5afa89984c2",
+    "changes": [
+      "Classify allocation failure in validated DNS/SNI setup as ResourceExhausted rather than InvalidArgument",
+      "Abort IP verification-parameter allocation failure before any DNS/SNI fallback",
+      "Preserve null output, complete rollback and a clean provider error queue on constructor failure"
+    ],
+    "before_fix_scenarios": [
+      {
+        "scenario_index": 6,
+        "exit_code": 1,
+        "output": "DNS verification allocation failure is ResourceExhausted: got 1 expected 9\n/Volumes/Work/Workspace/NyraLang/third_party/tls/tests/native/resource_test.c:100: code == cases[i].expected && !session && hits == 1 && !selected\n"
+      },
+      {
+        "scenario_index": 7,
+        "exit_code": 1,
+        "output": "IPv4 verification allocation failure cannot fall back to DNS/SNI: got 0 expected 9\n/Volumes/Work/Workspace/NyraLang/third_party/tls/tests/native/resource_test.c:100: code == cases[i].expected && !session && hits == 1 && !selected\n"
+      },
+      {
+        "scenario_index": 8,
+        "exit_code": 1,
+        "output": "IPv6 verification allocation failure cannot fall back to DNS/SNI: got 1 expected 9\n/Volumes/Work/Workspace/NyraLang/third_party/tls/tests/native/resource_test.c:100: code == cases[i].expected && !session && hits == 1 && !selected\n"
+      },
+      {
+        "scenario_index": 9,
+        "exit_code": 1,
+        "output": "SNI allocation failure is ResourceExhausted: got 1 expected 9\n/Volumes/Work/Workspace/NyraLang/third_party/tls/tests/native/resource_test.c:100: code == cases[i].expected && !session && hits == 1 && !selected\n"
+      }
+    ]
+  },
+  "hosts": {
+    "darwin-arm64": {
+      "receipt": "certificate-resource-acceptance-2026-10-27-darwin-arm64.json",
+      "tests": 23,
+      "isolated_replays": 23,
+      "native_scenarios": 48,
+      "native_bridge_asan_ubsan": true,
+      "sdk_runtime_version": "1.0.0",
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "c14b42f25af72d56c0b369150333de6b855901432062d501e5917ba1100fa837",
+      "ordinary_native_archive_hook_symbols": [],
+      "production_fixture_imports": []
+    },
+    "linux-x86_64": {
+      "receipt": "certificate-resource-acceptance-2026-10-27-linux-x86_64.json",
+      "tests": 23,
+      "isolated_replays": 23,
+      "native_scenarios": 48,
+      "native_bridge_asan_ubsan": true,
+      "sdk_runtime_version": "1.0.1",
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "99f4bd3238185b99a5840d0da96a463afae1a96eaaa06aae0a5a4a821d4f766a",
+      "ordinary_native_archive_hook_symbols": [],
+      "production_fixture_imports": []
+    },
+    "windows-x86_64": {
+      "receipt": "certificate-resource-acceptance-2026-10-27-windows-x86_64.json",
+      "tests": 23,
+      "isolated_replays": 23,
+      "native_scenarios": 48,
+      "native_bridge_asan_ubsan": false,
+      "sdk_runtime_version": "1.0.1",
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "b255a868276022bbd8a4c0349ebb48dc31afec899cef03e1910733060ccaf056",
+      "ordinary_native_archive_hook_symbols": [],
+      "production_fixture_imports": []
+    }
+  }
+}

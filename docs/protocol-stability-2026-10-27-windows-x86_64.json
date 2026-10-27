@@ -1,0 +1,11 @@
+{
+  "format": "nyra-tls-fixture-stability-v1",
+  "status": "passed",
+  "binary_sha256": "d95b5d72430ede8ee4143418af5ec9cf81d054536c4688a5465b32b328ee8ecf",
+  "rounds": 10,
+  "cases": [
+    "test_tls_stream_key_update_preserves_bidirectional_traffic",
+    "test_tls_stream_tampered_record_retires_without_plaintext"
+  ],
+  "passed": 20
+}

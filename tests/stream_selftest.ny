@@ -254,7 +254,12 @@ func tls_stream_test_drop_round() -> void {
 
 @test(tag = "tls_engine")
 func test_tls_stream_drop_and_descriptor_recovery() {
+  // Prime one-time OS/provider initialization before measuring exact recovery.
+  // Windows retains NLS, socket-provider and OpenSSL process resources on first use.
+  tls_stream_test_drop_round();
+  tls_test_assert(nyra_tls_test_server_join() == 0, "resource baseline warmup peer joins");
   let baseline: int32 = nyra_tls_test_fd_count();
+  tls_test_assert(baseline >= 0, "resource baseline probe succeeds");
   var i: int32 = 0;
   while i < 64 {
     tls_stream_test_drop_round();
@@ -350,4 +355,69 @@ func test_tls_stream_future_drop_does_not_cancel() {
   tls_test_assert(stream.Poll(0).IsOk() && stream.PendingCount() == 1, "dropped Future does not stop protocol progress");
   stream.Close();
   tls_test_assert(nyra_tls_test_server_join() == 0, "unobserved operation retires on stream Close");
+}
+
+@extern("C") func nyra_tls_test_arm_tamper() -> void;
+@extern("C") func nyra_tls_test_tampered_reads() -> int32;
+
+@test(tag = "tls_engine")
+func test_tls_stream_key_update_preserves_bidirectional_traffic() {
+  var stream: TlsStream = tls_stream_test_new(6, 65536);
+  tls_stream_test_handshake(stream);
+  let notice_future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(32, tls_stream_test_options()));
+  let notice: TlsTransfer = tls_stream_test_pump(stream, notice_future);
+  tls_test_assert(notice.error == nil && !notice.eof && notice.bytes_transferred == (10 as intptr), "KeyUpdate remains protocol traffic rather than plaintext");
+  let notice_bytes: NetBytes = notice.buffer.Bytes();
+  tls_test_assert(string.ViewFrom(notice_bytes.Data() as *const int8, notice_bytes.Len() as int32).Equal("key-update"), "application bytes survive the peer's new sending key");
+  nyra_tls_test_write_controls(317, 5, -1);
+  let payload: NetBuffer = tls_stream_test_payload(65536);
+  let sent: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.WriteAllAsync(payload, tls_stream_test_options()));
+  let written: TlsTransfer = tls_stream_test_pump(stream, sent);
+  tls_test_assert(written.error == nil && written.bytes_transferred == (65536 as intptr), "requested local key update preserves partial-write progress");
+  tls_test_assert(nyra_tls_test_partial_writes() > 0 && nyra_tls_test_write_stalls() > 0, "updated-key traffic exercises short sends and WouldBlock");
+  var total: int32 = 0;
+  while total < 65536 {
+    let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(4096, tls_stream_test_options()));
+    let read: TlsTransfer = tls_stream_test_pump(stream, future);
+    tls_test_assert(read.error == nil && !read.eof && read.bytes_transferred > 0, "updated-key echo produces authenticated plaintext");
+    if read.error != nil || read.bytes_transferred == 0 { break; }
+    let bytes: NetBytes = read.buffer.Bytes();
+    var i: int32 = 0;
+    unsafe { while i < bytes.Len() as int32 {
+      tls_test_assert(bytes.Data()[i] == ((total + i) % 251) as uint8, "key updates neither lose nor duplicate application bytes");
+      i = i + 1;
+    } }
+    total = total + bytes.Len() as int32;
+  }
+  tls_test_assert(total == 65536, "entire updated-key echo is delivered");
+  let end: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(1, tls_stream_test_options()));
+  let eof: TlsTransfer = tls_stream_test_pump(stream, end);
+  tls_test_assert(eof.error == nil && eof.eof, "peer close_notify remains authenticated after key updates");
+  let shutdown: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ShutdownAsync(tls_stream_test_options()));
+  tls_test_assert(tls_stream_test_pump(stream, shutdown).error == nil, "updated-key connection shuts down in both directions");
+  tls_test_assert(nyra_tls_test_server_join() == 0, "peer verifies exactly one non-requesting KeyUpdate response and all plaintext");
+}
+
+@test(tag = "tls_engine")
+func test_tls_stream_tampered_record_retires_without_plaintext() {
+  var stream: TlsStream = tls_stream_test_new(7, 0);
+  tls_stream_test_handshake(stream);
+  nyra_tls_test_arm_tamper();
+  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(32, tls_stream_test_options()));
+  let rejected: TlsTransfer = tls_stream_test_pump(stream, future);
+  tls_stream_test_tls_error(rejected, TlsErrorKind.Protocol);
+  tls_test_assert(nyra_tls_test_tampered_reads() == 1, "fixture alters encrypted payload after preserving its TLS record header");
+  tls_test_assert(rejected.bytes_transferred == 0 && rejected.buffer.Len() == 0 && !rejected.eof, "forged bytes are neither plaintext nor authenticated EOF");
+  tls_test_assert(!stream.IsOpen() && stream.PendingCount() == 0 && stream.RetainedBytes() == 0, "protocol failure retires TCP, waits and retained buffers");
+  tls_test_assert(stream.ReadAsync(1, tls_stream_test_options()).IsErr() && stream.WriteAllAsync(NetBuffer{}, tls_stream_test_options()).IsErr(), "failed connection cannot resume plaintext operations");
+  tls_test_assert(stream.ShutdownAsync(tls_stream_test_options()).IsErr(), "fatal protocol failure cannot become orderly shutdown");
+  tls_test_assert(nyra_tls_test_server_join() == 0, "tampered-record peer remains connected until error classification");
+  var healthy: TlsStream = tls_stream_test_new(0, 0);
+  tls_stream_test_handshake(healthy);
+  let close_future: AsyncFuture<TlsTransfer> = tls_stream_test_future(healthy.ReadAsync(1, tls_stream_test_options()));
+  let close: TlsTransfer = tls_stream_test_pump(healthy, close_future);
+  tls_test_assert(close.error == nil && close.eof, "prior record failure does not poison a fresh verified connection");
+  let shutdown: AsyncFuture<TlsTransfer> = tls_stream_test_future(healthy.ShutdownAsync(tls_stream_test_options()));
+  tls_test_assert(tls_stream_test_pump(healthy, shutdown).error == nil, "fresh connection retains orderly shutdown");
+  tls_test_assert(nyra_tls_test_server_join() == 0, "fresh healthy peer observes close_notify");
 }

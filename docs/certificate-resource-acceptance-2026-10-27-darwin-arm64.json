@@ -1,0 +1,527 @@
+{
+  "format": "nyra-tls-sdk-acceptance-v1",
+  "status": "passed",
+  "host": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "sdk_version": "1.0.0",
+  "sdk_manifest_sha256": "7b83f8b49a52fa6493ae0acae2035437061bd74070d6be0b23da0b18855a37fe",
+  "compiler_sha256": "c14b42f25af72d56c0b369150333de6b855901432062d501e5917ba1100fa837",
+  "compiler_origin": "source-candidate",
+  "sdk_compiler_sha256": "cd51c4f237a36608f2a51d7f3bc2468e74a91dd26a2831e7481979e967e31b8f",
+  "macos_deployment_target": "27.0",
+  "source_fallback_disabled": true,
+  "commands": [
+    {
+      "name": "native",
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Volumes/Work/Workspace/NyraLang/third_party/tls/scripts/accept_native.py",
+        "--openssl-root",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9",
+        "--out-dir",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance",
+        "--cc",
+        "/usr/bin/clang",
+        "--sanitize"
+      ]
+    },
+    {
+      "name": "tls-native-production-symbols",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/hosts/darwin-arm64/llvm/bin/llvm-nm",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/native/libtls_native.a"
+      ]
+    },
+    {
+      "name": "net-native",
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Volumes/Work/Workspace/NyraLang/third_party/net_core/scripts/build_native.py",
+        "--out-dir",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/net-native",
+        "--cflag=-Dnet_core_os_write=nyra_tls_test_real_write",
+        "--cflag=-Dnet_core_os_read=nyra_tls_test_real_read"
+      ]
+    },
+    {
+      "name": "fixture",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/hosts/darwin-arm64/llvm/bin/clang",
+        "-std=c11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-DNYRA_TLS_TEST_CA_FILE=\"/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/ca.pem\"",
+        "-c",
+        "/Volumes/Work/Workspace/NyraLang/third_party/tls/tests/native/config_fixture.c",
+        "-o",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/config_fixture.o"
+      ]
+    },
+    {
+      "name": "stream-fixture",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/hosts/darwin-arm64/llvm/bin/clang",
+        "-std=c11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-pthread",
+        "-I/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/include",
+        "-I/Volumes/Work/Workspace/NyraLang/third_party/net_core/private/native",
+        "-DNYRA_TLS_TEST_CERT_FILE=\"/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/peer.pem\"",
+        "-DNYRA_TLS_TEST_KEY_FILE=\"/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/peer.key\"",
+        "-c",
+        "/Volumes/Work/Workspace/NyraLang/third_party/tls/tests/native/stream_fixture.c",
+        "-o",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/stream_fixture.o"
+      ]
+    },
+    {
+      "name": "list",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-owner-fix-compiler/nyrac",
+        "test",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/project/tls",
+        "--tag",
+        "tls_engine",
+        "--list"
+      ]
+    },
+    {
+      "name": "tests",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-owner-fix-compiler/nyrac",
+        "test",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/project/tls",
+        "--tag",
+        "tls_engine",
+        "-O2",
+        "-j",
+        "4",
+        "--out-dir",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/objects",
+        "-o",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "--platform-archive=/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/targets/darwin-arm64/stdlib/lib/libnyra_platform.a",
+        "--link-arg=/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/native/libtls_native.a",
+        "--link-arg=/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libssl.a",
+        "--link-arg=/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libcrypto.a",
+        "--link-arg=/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/net-native/libnet_core_native.a",
+        "--link-arg=/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/config_fixture.o",
+        "--link-arg=/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/stream_fixture.o",
+        "--link-arg=-lpthread",
+        "--report",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tests.json"
+      ]
+    },
+    {
+      "name": "case-0",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "0"
+      ]
+    },
+    {
+      "name": "case-1",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "1"
+      ]
+    },
+    {
+      "name": "case-2",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "2"
+      ]
+    },
+    {
+      "name": "case-3",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "3"
+      ]
+    },
+    {
+      "name": "case-4",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "4"
+      ]
+    },
+    {
+      "name": "case-5",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "5"
+      ]
+    },
+    {
+      "name": "case-6",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "6"
+      ]
+    },
+    {
+      "name": "case-7",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "7"
+      ]
+    },
+    {
+      "name": "case-8",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "8"
+      ]
+    },
+    {
+      "name": "case-9",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "9"
+      ]
+    },
+    {
+      "name": "case-10",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "10"
+      ]
+    },
+    {
+      "name": "case-11",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "11"
+      ]
+    },
+    {
+      "name": "case-12",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "12"
+      ]
+    },
+    {
+      "name": "case-13",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "13"
+      ]
+    },
+    {
+      "name": "case-14",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "14"
+      ]
+    },
+    {
+      "name": "case-15",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "15"
+      ]
+    },
+    {
+      "name": "case-16",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "16"
+      ]
+    },
+    {
+      "name": "case-17",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "17"
+      ]
+    },
+    {
+      "name": "case-18",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "18"
+      ]
+    },
+    {
+      "name": "case-19",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "19"
+      ]
+    },
+    {
+      "name": "case-20",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "20"
+      ]
+    },
+    {
+      "name": "case-21",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "21"
+      ]
+    },
+    {
+      "name": "case-22",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/tls-tests",
+        "22"
+      ]
+    },
+    {
+      "name": "net-production-native",
+      "command": [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "/Volumes/Work/Workspace/NyraLang/third_party/net_core/scripts/build_native.py",
+        "--out-dir",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/net-production-native"
+      ]
+    },
+    {
+      "name": "net-production-imports",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/hosts/darwin-arm64/llvm/bin/llvm-nm",
+        "-u",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/net-production-native/libnet_core_native.a"
+      ]
+    },
+    {
+      "name": "production",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-owner-fix-compiler/nyrac",
+        "precompile",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/project/tls/tls.ny",
+        "-O2",
+        "-j",
+        "4",
+        "--out-dir",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/production-objects",
+        "-o",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/production"
+      ]
+    },
+    {
+      "name": "production-imports",
+      "command": [
+        "/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/hosts/darwin-arm64/llvm/bin/llvm-nm",
+        "-u",
+        "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/production/lib/libpackage.a"
+      ]
+    }
+  ],
+  "openssl_pin_sha256": "ec27a6fcd269a5aea2d04194af37d9069d2c103bad9f088b3cb44ade3e6e58eb",
+  "net_core_source_sha256": {
+    ".github/actionlint.yaml": "0a9ab45c55b3f5b72a698f2edc46c60d2b4c37b440a8915a961e158e26201909",
+    "interface/async_resolver.ni": "99b483f174e064a5f171a0c08e8d0ade000f070ada2ab44246148e5645c51997",
+    "interface/async_transport.ni": "0d72566f4b73329d6342d6c0e2a62a70dcb9580b212b0da3c82512393761f870",
+    "interface/foundation.ni": "7f36b46f0584007a739bad246f20f52b3f88f1c3067443d2e6fbd4d801327878",
+    "interface/transport.ni": "e5402ff32afcf7db89cf56d979232ded1ab11092d037523f54e38c170c0deb5d",
+    "net_core.ny": "9d47f5150692a70d1e553b46c8db4404c35ef4260e84f1fa4c243a77b715237b",
+    "package.yaml": "3bd6b97785f89a3b6e54f048e2182addd644f19c1cd94d99408f8f08941a548e",
+    "private/address.ny": "8b8aa9e2d05905823e54205e05c22c623bbeff53cd867509717172204300bb1b",
+    "private/async_connection.ny": "83a06d5a527cb979e84ba8088905b5e46f78c2e2672d8312ec8fef6239c7a861",
+    "private/async_resolver.ny": "26b5450797fe6bd1cd82ea3c1fe6c4f0c22daa661079b673e48fe0a9c55926ef",
+    "private/async_transfer.ny": "e65d71cacd79244e89c77f29a253086c987f553141eb9f6a3a4c3a9ef4276296",
+    "private/buffer.ny": "6fc4dc9952adb6deba5723ee6029c591e2b5424e2a3a0db920fe57884bcb3587",
+    "private/cancellation.ny": "f3fce6b30ee480fc89ca3a4a9634a3345afca1167e6f53ad42d62daaaa98bb64",
+    "private/deadline.ny": "d8387847f7d4221c3cab96f7044343dfc1910ddae9bc585e9420950e49bfc5cf",
+    "private/endpoint.ny": "4281377cc3b6b4a9228a56e8165614929e7742508c26c70ae703357bb743d7fa",
+    "private/error.ny": "2f516c2fd5729fe46f80db9c17911cd89be4cf38ff376500e09fd5062e249040",
+    "private/event_loop.ny": "3b6f9f5bb8a0cf1715e579713ae3cc64c0e0df9770b565d4ab22b992ae670212",
+    "private/foundation.ny": "c1c3f5e4327087a314ab046f5dbf0b4de1907a3bc64e348951fecb1a5005e2ab",
+    "private/native/net_core_os.c": "96b39b4e321ee4b69c542cff1161200ef671ead0695f42e77dc710a4ed237f38",
+    "private/native/net_core_os.h": "930b6b192f2c35e79f86a008d4548a0a960009c0abc1773d4a28afc7b3c7702b",
+    "private/native_bridge.ny": "dd045545d15ca00dd11eea743436aea36123a27a11f400e5d3b4cefd7d3db100",
+    "private/owned_buffer.ny": "4442941afa967d0c0bd00dfcc5d1d066964457e2c858f81b229854774a1f265c",
+    "private/resolver.ny": "9aa51008f958a3b5fa1feb8ffa94a91600f04771f211e8c1dae054442eb01a02",
+    "private/socket_owner.ny": "2fe5834e61fda5c72ee15bb4285a38b1e2b0061366d160ca144d7729965ce78f",
+    "private/tcp.ny": "aad1f99d6750c7e3058a86e67d3c253c592b4ec486626b11a874d8ef4287a756",
+    "private/transport.ny": "b43b8f1f603a4737546177b879e207a450fd2a28a77255f3962bc6649ee1c4c5",
+    "private/udp.ny": "8ebcbb815ead051222c10c89516306e0810b7b3d3cb180f8826b95a463cd0620",
+    "scripts/accept.py": "9ed34973794c204cfbcf6454ad3d5a0546263cd0c2af34798049c0f3e82f16f9",
+    "scripts/accept_macos.py": "d23665b1769b7270264c9b65d246cfad2914287ee895928dfa6206e0d68e4289",
+    "scripts/build_mobile.py": "bc6d56c94945bfa550fe198f67ae28405f6aa55c9834df7897d775ebf908441a",
+    "scripts/build_native.py": "aab135e54aa10be5c59523c1c38d892f6bdb3d0c3e9fb8d1e1de5b85daa0553b",
+    "scripts/ci.py": "323e8e4af900eb83cb8eee41f541d88f174706a46de4d091e5ca57cb28c05a87",
+    "scripts/ci_release.py": "8cd12736eb55acd5b9537ff35d58f8debdb4b394e1f626e88df6823d3dc43004",
+    "tests/n1_foundation_selftest.ny": "8547abe03fcf04abe7fb9769aea8a8708cd5f2fb7e65f6c48d0eed50ed41cd1e",
+    "tests/n3_assert_selftest.ny": "b4b8d2725a74c76d8487dc66f97e17f6e639f43f993f07f42a8b707b391e0274",
+    "tests/n3_resolver_selftest.ny": "77180b1bf98df9dc027e58393948b6a11f011eab25bf2f47844b0401a9ad6877",
+    "tests/n3_selftest.ny": "dd6a7da3a7b8811d78d8a468c91cc9df39c8c61c8f2916fa958547e4267aa4a8",
+    "tests/n3_transport_selftest.ny": "ef532977b3b0e7f0f3d8c759fc52fda27ac4b3111a8f658d34796778a5fa5a8a",
+    "tests/native/ci_smoke.c": "36fab234beccaf54e49ab2785632096ed512c74f3d4b0907a23bbf1f8450b02f",
+    "tests/native/n3_fixture.c": "5af31a467766a289a59ac4f10fc3fb1a56ad1f81998f3c43e80cb00ee6f40c68"
+  },
+  "source_sha256": {
+    "interface/stream.ni": "e664a4b2ba1777fe766420ecaf360e21aac3d9cc22801139f49df2bb293026c9",
+    "interface/tls.ni": "71e3d3a3d1cd270138c46bb29be7fdced7ac8a86b075ca3e7c83158d35acdd57",
+    "package.yaml": "dbe74d60ea56c8d253eec3c5fd424835910353556514825c4e505a95c224e794",
+    "private/native/tls_engine.c": "8c76a07f21a71686c9f35ad87a720018568dce561453b968570ea5afa89984c2",
+    "private/native/tls_engine.h": "eeb56c105cb85da2442af36d9afa755a1605ec16a963afc058ec729dddbe5177",
+    "private/stream.ny": "c0fff094e39cfa4aeef8b74941c42311e8e3706847dc22a9db5812893e0c1a72",
+    "private/stream_poll.ny": "87fdf39cd8711cdce51c4504cde8c0278afb1dce3a1735b6b1d6f03dd107e1e4",
+    "private/tls.ny": "688948c9668e10b8add14bbe432658399f2c801038fbe86434c12db2c0ff2b27",
+    "scripts/accept.py": "66ea025c37792745506dac7b505eba2e6cbd50be026cd43704076a31297e8180",
+    "scripts/accept_native.py": "4eb66b75bd5b96b7ab697f4110bdb0bea0a9285f2beea6ae7499ecb5878344b6",
+    "scripts/build_native.py": "004241016d30243fe11637a52149fb7d4ed636c33d6d4abe8769fc49a846a2b8",
+    "scripts/build_openssl.py": "86f9bb8dc0a0544287db141cf3da41d2c59a9462dfa3efcd7868b9a811d38cdc",
+    "scripts/certificate_fixtures.py": "e846aaa5d0485a4f9f5377ee0f98cb9cc1830cd2f463d990e5788f49090382fb",
+    "scripts/native_support.py": "3182be782e6c556c11e9234f24cbfe0da696cc47db35788470b5aa132f9cbcf8",
+    "tests/engine_selftest.ny": "b0c41499d921e4862fbb17350fef1f49309ba10ae65f1bd494e07a3561e75f77",
+    "tests/native/config_fixture.c": "a2221a78b472ac2db06e78751fc812cc4ba02c0511cf7caa18a34c7a80ecbc34",
+    "tests/native/engine_test.c": "64a6ea4efc5f69f2c86efe59e7371eb345474b7e0db17144d6c7fa800485c02e",
+    "tests/native/resource_hooks.h": "b518e2d44b73a2c83a5b212a7bfecb85dc33ed9ccec4cad3361a663f5dddd3be",
+    "tests/native/resource_test.c": "55eca51b4dd5313e6e5e92cffea6b9e1c4847b702a32a0818bde3dce54724477",
+    "tests/native/stream_fixture.c": "147ab90d6ce10e9b796a4f6f452f317aac7afe8564180e125ee6f25650856bab",
+    "tests/stream_selftest.ny": "34e0da4685e79a61d17489bf8b5f93da5a4039ef76e48d2a8ee70de69b63603d",
+    "tls.ny": "e29bb6e377eb09dd4f9bf30386d9b3b78092c9b73c41f91b9649452bed083a00"
+  },
+  "native_production_fixture_symbols": [],
+  "staged_manifest_sha256": {
+    "tls": "4b7b796ad22b5e8a1d8ced2cd10d98bbf5d69ecc5239fe518f9f808731c996b0",
+    "net_core": "d5f2b3155d6204041d7f8dc984930a3d98862abfc2879fd3e7cff733d286eff9"
+  },
+  "case_names": [
+    "test_tls_default_and_validation",
+    "test_tls_move_and_idempotent_close",
+    "test_tls_handshake_output_and_bounded_input",
+    "test_tls_controls_cancel_before_timeout",
+    "test_tls_deadline_retires_pending_output",
+    "test_tls_drop_cycles",
+    "test_tls_stream_patterned_short_writes_and_shutdown",
+    "test_tls_stream_admission_budget_and_move",
+    "test_tls_stream_handshake_absolute_deadline",
+    "test_tls_stream_wakeable_cancel",
+    "test_tls_stream_transport_failure_preserves_progress",
+    "test_tls_stream_close_callback_observes_terminal_state",
+    "test_tls_stream_poll_callback_can_enqueue_and_close",
+    "test_tls_stream_truncation_after_plaintext_prefix",
+    "test_tls_stream_verification_failure_is_terminal",
+    "test_tls_stream_drop_and_descriptor_recovery",
+    "test_tls_stream_cancel_preserves_plaintext_prefix",
+    "test_tls_stream_read_deadline",
+    "test_tls_stream_shutdown_deadline",
+    "test_tls_stream_admission_controls_and_empty_io",
+    "test_tls_stream_future_drop_does_not_cancel",
+    "test_tls_stream_key_update_preserves_bidirectional_traffic",
+    "test_tls_stream_tampered_record_retires_without_plaintext"
+  ],
+  "tests": {
+    "package": "tls",
+    "status": "ok",
+    "passed": 23,
+    "failed": 0,
+    "ignored": 0,
+    "ran": 23,
+    "skipped": 0,
+    "exit_code": 0
+  },
+  "isolated_replays": 23,
+  "production_fixture_imports": [],
+  "native_cases": [
+    "verified TLS 1.2 DNS identity and SNI/ALPN",
+    "verified TLS 1.3 DNS identity and SNI/ALPN",
+    "IP SAN verification without SNI and optional ALPN",
+    "hostname mismatch is terminal",
+    "IP SAN mismatch is terminal",
+    "untrusted certificate is terminal",
+    "expired certificate is rejected",
+    "CN-only certificate cannot replace a DNS SAN",
+    "ALPN mismatch fails the handshake",
+    "TLS 1.1 is refused",
+    "bounded output, stable write retries and patterned 16 KiB transfer",
+    "fragmented TLS application read",
+    "bidirectional authenticated shutdown",
+    "TLS 1.2 tampered record yields no plaintext and terminal Protocol error",
+    "TLS 1.3 tampered record yields no plaintext and terminal Protocol error",
+    "TLS 1.2 record replay never duplicates authenticated plaintext",
+    "TLS 1.3 record replay never duplicates authenticated plaintext",
+    "four TLS 1.3 peer key updates preserve bidirectional traffic without unsolicited replies",
+    "four requested TLS 1.3 key updates rotate both directions with non-requesting replies",
+    "pending read rejects size changes and safely replaces caller storage",
+    "complete intermediate chain is accepted with only its root trusted",
+    "missing intermediate fails closed without issuer retrieval",
+    "an intermediate with the wrong signing key is rejected",
+    "CA:FALSE intermediate cannot authorize a leaf",
+    "intermediate pathLenConstraint is enforced",
+    "clientAuth-only leaf cannot authenticate a TLS server",
+    "not-yet-valid leaf is rejected",
+    "eight intermediate certificates meet the configured verification depth",
+    "nine intermediate certificates exceed the configured verification depth",
+    "valid certificate below the 256 KiB message limit is accepted",
+    "certificate above the 256 KiB message limit fails terminally",
+    "transport truncation is unexpected EOF",
+    "close_notify remains authenticated EOF after transport FIN",
+    "missing explicit trust fails closed",
+    "embedded NUL peer identity rejected",
+    "bounded input, invalid ranges and pre-handshake state",
+    "64 construction/drop cycles",
+    "TLS context allocation failure rolls back",
+    "trust loading failure rolls back",
+    "bridge state allocation failure rolls back",
+    "TLS session allocation failure rolls back",
+    "BIO pair creation failure rolls back",
+    "unadopted BIO endpoints both roll back",
+    "DNS verification allocation failure is ResourceExhausted",
+    "IPv4 verification allocation failure cannot fall back to DNS/SNI",
+    "IPv6 verification allocation failure cannot fall back to DNS/SNI",
+    "SNI allocation failure is ResourceExhausted",
+    "ALPN allocation failure rolls back"
+  ],
+  "native_artifacts": {
+    "format": "nyra-tls-native-v1",
+    "openssl": {
+      "version": "3.5.9",
+      "series": "3.5 LTS",
+      "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+      "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "license": "Apache-2.0",
+      "support_until": "2030-04-08",
+      "source": "https://openssl-library.org/source/"
+    },
+    "target": "arm64-apple-darwin27.0.0",
+    "compile": [
+      "/usr/bin/clang",
+      "-std=c11",
+      "-O2",
+      "-fPIC",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-I/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/include",
+      "-c",
+      "/Volumes/Work/Workspace/NyraLang/third_party/tls/private/native/tls_engine.c",
+      "-o",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/native/tls_engine.o"
+    ],
+    "archive_command": [
+      "/Volumes/Work/Workspace/NyraLang/cache/net-core-ci-sdk/nyra-sdk-1.0.0-darwin-arm64/hosts/darwin-arm64/llvm/bin/llvm-ar",
+      "rcs",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/native/libtls_native.a",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/native/tls_engine.o"
+    ],
+    "system_libraries": [
+      "-lpthread"
+    ],
+    "link_inputs": [
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-cert-resource-macos-final/native-acceptance/native/libtls_native.a",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libssl.a",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libcrypto.a"
+    ],
+    "inputs_sha256": {
+      "/Volumes/Work/Workspace/NyraLang/third_party/tls/private/native/tls_engine.c": "8c76a07f21a71686c9f35ad87a720018568dce561453b968570ea5afa89984c2",
+      "/Volumes/Work/Workspace/NyraLang/third_party/tls/private/native/tls_engine.h": "eeb56c105cb85da2442af36d9afa755a1605ec16a963afc058ec729dddbe5177",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libssl.a": "2ea2bce75afb631120c765d24afb63fc52461cddc07fef155c955a31ac102752",
+      "/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/openssl-3.5.9/libcrypto.a": "2042ed505b6769eaadb367b6946c01e3d8eea873b44b749d1694fcf3f8f05da9"
+    }
+  }
+}

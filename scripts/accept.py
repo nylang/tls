@@ -10,6 +10,7 @@ import platform
 import shutil
 import subprocess
 import sys
+from native_support import static_libraries, system_libraries
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -23,12 +24,16 @@ def main() -> int:
     parser.add_argument('--native-cc', default=shutil.which('clang') or 'clang', help='host C compiler with a compatible sanitizer runtime')
     parser.add_argument('--net-core', type=Path, default=PACKAGE.parent / 'net_core')
     parser.add_argument('--openssl-root', type=Path, required=True)
+    parser.add_argument('--openssl-cli', help='test certificate CLI; defaults to the pinned build when present')
+    parser.add_argument('--no-sanitize', action='store_true', help='explicitly disable native bridge ASan/UBSan; recorded in the receipt')
     parser.add_argument('--out-dir', type=Path, required=True)
     args = parser.parse_args()
     sdk, net, ssl, output = [p.expanduser().resolve() for p in (args.sdk, args.net_core, args.openssl_root, args.out_dir)]
     host = platform.system().lower() + '-' + {'aarch64': 'arm64', 'amd64': 'x86_64'}.get(platform.machine().lower(), platform.machine().lower())
-    if host not in ('darwin-arm64', 'darwin-x86_64', 'linux-x86_64'):
-        parser.error('initial acceptance supports native POSIX desktop hosts only')
+    if host not in ('darwin-arm64', 'darwin-x86_64', 'linux-x86_64', 'windows-x86_64'):
+        parser.error('acceptance supports native desktop hosts only')
+    windows = host.startswith('windows-')
+    suffix = '.exe' if windows else ''
     if output == PACKAGE or PACKAGE in output.parents or output == net or net in output.parents:
         parser.error('use an external output directory')
     if output.exists() and any(output.iterdir()):
@@ -50,7 +55,7 @@ def main() -> int:
     stdlib = sdk / 'targets' / host / 'stdlib'
     output.mkdir(parents=True, exist_ok=True)
     environment = {k: v for k, v in os.environ.items() if not k.startswith(('NYRA', 'DYLD_', 'LD_')) and k != 'LLVM_PREFIX'}
-    environment.update(CC=str(toolkit / 'clang'), AR=str(toolkit / 'llvm-ar'),
+    environment.update(CC=str(toolkit / ('clang' + suffix)), AR=str(toolkit / ('llvm-ar' + suffix)),
         PATH=str(toolkit) + os.pathsep + environment.get('PATH', ''), NYRA_KERNEL_ROOT=str(output / 'source-fallback-disabled'), NYRA_SDK_ROOT=str(sdk))
     if host.startswith('darwin-'):
         environment['SDKROOT'] = subprocess.check_output(['xcrun', '--show-sdk-path'], text=True).strip()
@@ -80,7 +85,14 @@ def main() -> int:
         print('END ' + name, flush=True)
         return (output / (name + '.log')).read_text()
     try:
-        run('native', [sys.executable, str(PACKAGE / 'scripts/accept_native.py'), '--openssl-root', str(ssl), '--out-dir', str(output / 'native-acceptance'), '--cc', args.native_cc, '--sanitize'])
+        run('native', [sys.executable, str(PACKAGE / 'scripts/accept_native.py'), '--openssl-root', str(ssl), '--out-dir', str(output / 'native-acceptance'), '--cc', args.native_cc,
+            *(['--sanitize'] if not args.no_sanitize else []),
+            *(['--openssl-cli', args.openssl_cli] if args.openssl_cli else [])])
+        native_symbols = run('tls-native-production-symbols', [str(toolkit / ('llvm-nm' + suffix)),
+            str(output / 'native-acceptance/native/libtls_native.a')])
+        if 'nyra_tls_test_' in native_symbols:
+            raise RuntimeError('constructor fault hooks leaked into the ordinary TLS native archive')
+        report['native_production_fixture_symbols'] = []
         stage = output / 'project'
         for source, name in ((PACKAGE, 'tls'), (net, 'net_core')):
             shutil.copytree(source, stage / name, ignore=shutil.ignore_patterns('.git', '__pycache__', 'cache', 'bin', 'lib', 'out'))
@@ -89,13 +101,14 @@ def main() -> int:
             (stage / name / 'package.yaml').write_text('name: ' + name + '\nversion: 0.1.0\nlicense: MIT\ndependencies:\n  stdlib:\n    precompiled: ' + json.dumps(str(stdlib)) + '\n' + extra + 'directories:\n  interface:\n    - interface\n  private:\n    - private\n    - tests\n')
         report['staged_manifest_sha256'] = {name: digest(stage / name / 'package.yaml') for name in ('tls', 'net_core')}
         run('net-native', [sys.executable, str(net / 'scripts/build_native.py'), '--out-dir', str(output / 'net-native'),
-            '--cflag=-Dnet_core_os_write=nyra_tls_test_real_write'])
+            '--cflag=-Dnet_core_os_write=nyra_tls_test_real_write',
+            '--cflag=-Dnet_core_os_read=nyra_tls_test_real_read'])
         fixture = output / 'config_fixture.o'
         ca_file = output / 'native-acceptance/ca.pem'
-        run('fixture', [str(toolkit / 'clang'), '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+        run('fixture', [environment['CC'], '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
             '-DNYRA_TLS_TEST_CA_FILE=' + json.dumps(str(ca_file)), '-c', str(PACKAGE / 'tests/native/config_fixture.c'), '-o', str(fixture)])
         stream_fixture = output / 'stream_fixture.o'
-        run('stream-fixture', [str(toolkit / 'clang'), '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-pthread',
+        run('stream-fixture', [environment['CC'], '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *([] if windows else ['-pthread']),
             '-I' + str(ssl / 'include'), '-I' + str(net / 'private/native'),
             '-DNYRA_TLS_TEST_CERT_FILE=' + json.dumps(str(output / 'native-acceptance/peer.pem')),
             '-DNYRA_TLS_TEST_KEY_FILE=' + json.dumps(str(output / 'native-acceptance/peer.key')),
@@ -105,11 +118,14 @@ def main() -> int:
         if not names or len(names) != len(set(names)):
             raise RuntimeError('missing or duplicate TLS case discovery')
         report['case_names'] = names
-        binary = output / 'tls-tests'
-        links = [output / 'native-acceptance/native/libtls_native.a', ssl / 'libssl.a', ssl / 'libcrypto.a', output / 'net-native/libnet_core_native.a', fixture, stream_fixture]
+        binary = output / ('tls-tests' + suffix)
+        links = [output / 'native-acceptance/native/libtls_native.a', *static_libraries(ssl, windows), output / 'net-native/libnet_core_native.a', fixture, stream_fixture]
+        extra_links = system_libraries(windows, host.startswith('linux-'))
+        if windows:
+            extra_links.append('-liphlpapi')
         run('tests', [str(compiler), 'test', str(stage / 'tls'), '--tag', 'tls_engine', '-O2', '-j', '4',
             '--out-dir', str(output / 'objects'), '-o', str(binary), '--platform-archive=' + str(stdlib / 'lib/libnyra_platform.a'),
-            *['--link-arg=' + str(p) for p in links], *(['--link-arg=-ldl', '--link-arg=-lpthread'] if host.startswith('linux-') else []),
+            *['--link-arg=' + str(p) for p in links], *['--link-arg=' + p for p in extra_links],
             '--report', str(output / 'tests.json')])
         tests = json.loads((output / 'tests.json').read_text())
         if tests['passed'] != len(names) or tests['failed'] or tests['ignored'] or tests['skipped']:
@@ -119,11 +135,11 @@ def main() -> int:
             run('case-' + str(index), [str(binary), str(index)])
         report['isolated_replays'] = tests['passed']
         run('net-production-native', [sys.executable, str(net / 'scripts/build_native.py'), '--out-dir', str(output / 'net-production-native')])
-        native_imports = run('net-production-imports', [str(toolkit / 'llvm-nm'), '-u', str(output / 'net-production-native/libnet_core_native.a')])
+        native_imports = run('net-production-imports', [str(toolkit / ('llvm-nm' + suffix)), '-u', str(output / 'net-production-native/libnet_core_native.a')])
         if 'nyra_tls_test_' in native_imports:
             raise RuntimeError('TLS fixture interposition leaked into production net_core adapter')
         run('production', [str(compiler), 'precompile', str(stage / 'tls/tls.ny'), '-O2', '-j', '4', '--out-dir', str(output / 'production-objects'), '-o', str(output / 'production')])
-        imports = run('production-imports', [str(toolkit / 'llvm-nm'), '-u', str(output / 'production/lib/libpackage.a')])
+        imports = run('production-imports', [str(toolkit / ('llvm-nm' + suffix)), '-u', str(output / 'production/lib/libpackage.a')])
         if 'nyra_tls_test_' in imports or 'AddFail' in imports:
             raise RuntimeError('test fixture/harness imports leaked into production')
         report['production_fixture_imports'] = []

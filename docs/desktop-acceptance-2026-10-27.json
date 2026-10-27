@@ -1,0 +1,175 @@
+{
+  "format": "nyra-tls-desktop-acceptance-v1",
+  "date": "2026-10-27",
+  "status": "passed",
+  "scope": "Local source candidates; explicit PEM trust only; no SDK promotion or package publication",
+  "compiler_fix": "Deleted-copy ARC facades retain exclusive ownership when returned",
+  "compiler_fix_source_sha256": "781ae5d12b2bc3172e3f583aa432ff922b1371077cf0c6fe147e022a7b29cf37",
+  "new_native_compiler_source_revision": "99b28c1dc77eb8955bc8def4438d429d2bc19433",
+  "macos_compiler_note": "Earlier ownership-fix candidate, built before the 1.0.2 source version stamp; see the compiler hash in its receipt",
+  "hosts": {
+    "darwin-arm64": {
+      "receipt": "desktop-acceptance-2026-10-27-darwin-arm64.json",
+      "tests": 21,
+      "isolated_replays": 21,
+      "native_cases": 19,
+      "native_bridge_asan_ubsan": true,
+      "sdk_runtime_version": "1.0.0",
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "c14b42f25af72d56c0b369150333de6b855901432062d501e5917ba1100fa837",
+      "production_fixture_isolation": true
+    },
+    "linux-x86_64": {
+      "receipt": "desktop-acceptance-2026-10-27-linux-x86_64.json",
+      "tests": 21,
+      "isolated_replays": 21,
+      "native_cases": 19,
+      "native_bridge_asan_ubsan": true,
+      "sdk_runtime_version": "1.0.1",
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "99f4bd3238185b99a5840d0da96a463afae1a96eaaa06aae0a5a4a821d4f766a",
+      "production_fixture_isolation": true
+    },
+    "windows-x86_64": {
+      "receipt": "desktop-acceptance-2026-10-27-windows-x86_64.json",
+      "tests": 21,
+      "isolated_replays": 21,
+      "native_cases": 19,
+      "native_bridge_asan_ubsan": false,
+      "sdk_runtime_version": "1.0.1",
+      "compiler_origin": "source-candidate",
+      "compiler_sha256": "b255a868276022bbd8a4c0349ebb48dc31afec899cef03e1910733060ccaf056",
+      "production_fixture_isolation": true
+    }
+  },
+  "windows_fixture_stability": {
+    "receipt": "windows-fixture-stability-2026-10-27.json",
+    "targeted_replays": 40,
+    "rounds": 10,
+    "cases": [
+      "test_tls_stream_admission_budget_and_move",
+      "test_tls_stream_poll_callback_can_enqueue_and_close",
+      "test_tls_stream_drop_and_descriptor_recovery",
+      "test_tls_stream_admission_controls_and_empty_io"
+    ]
+  },
+  "provider_builds": {
+    "darwin-arm64": {
+      "pin": {
+        "version": "3.5.9",
+        "series": "3.5 LTS",
+        "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+        "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+        "license": "Apache-2.0",
+        "support_until": "2030-04-08",
+        "source": "https://openssl-library.org/source/"
+      },
+      "archive_sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "commands": [
+        [
+          "perl",
+          "Configure",
+          "no-shared",
+          "no-tests",
+          "no-module",
+          "--prefix=/Volumes/Work/Workspace/NyraLang/cache/tls-openssl/build-01/install"
+        ],
+        [
+          "make",
+          "-j8",
+          "build_libs"
+        ]
+      ],
+      "artifacts": {
+        "libssl.a": "2ea2bce75afb631120c765d24afb63fc52461cddc07fef155c955a31ac102752",
+        "libcrypto.a": "2042ed505b6769eaadb367b6946c01e3d8eea873b44b749d1694fcf3f8f05da9"
+      },
+      "scope": "host static library build only; upstream test suite not run"
+    },
+    "linux-x86_64": {
+      "pin": {
+        "version": "3.5.9",
+        "series": "3.5 LTS",
+        "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+        "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+        "license": "Apache-2.0",
+        "support_until": "2030-04-08",
+        "source": "https://openssl-library.org/source/"
+      },
+      "archive_sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "commands": [
+        [
+          "perl",
+          "Configure",
+          "no-shared",
+          "no-tests",
+          "no-module",
+          "--prefix=/runner/tls-dev-20261027/openssl/install"
+        ],
+        [
+          "make",
+          "-j4",
+          "build_libs"
+        ],
+        [
+          "make",
+          "-j4",
+          "apps/openssl"
+        ]
+      ],
+      "windows_assembly": null,
+      "artifacts": {
+        "libssl.a": "f355167951857505b5b0305fd2e8ea8f224fa29d780211175d32767b07234727",
+        "libcrypto.a": "32af35c4402f018e652cd692f0a4b14472e37453c71761b0e9e428d8cfe20dd8",
+        "apps/openssl": "33200cefd0af9622a2070dd70db3590ced11b8eb49ec894aec6c44d4b3e2a026"
+      },
+      "scope": "host static library build only; upstream test suite not run"
+    },
+    "windows-x86_64": {
+      "pin": {
+        "version": "3.5.9",
+        "series": "3.5 LTS",
+        "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+        "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+        "license": "Apache-2.0",
+        "support_until": "2030-04-08",
+        "source": "https://openssl-library.org/source/"
+      },
+      "archive_sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "commands": [
+        [
+          "E:/workspace/tls-dev-20261027/perl/perl/bin/perl.exe",
+          "Configure",
+          "VC-WIN64A",
+          "no-asm",
+          "no-shared",
+          "no-tests",
+          "no-module",
+          "--prefix=E:\\workspace\\tls-dev-20261027\\openssl\\install"
+        ],
+        [
+          "nmake",
+          "build_libs"
+        ],
+        [
+          "nmake",
+          "apps/openssl.exe"
+        ]
+      ],
+      "windows_assembly": false,
+      "artifacts": {
+        "libssl.lib": "271e1299c1b227104ca14e71e5e92e4384bbbbe1777b4c78d9dd7f61a3899790",
+        "libcrypto.lib": "e247ca8ce93ad287b9c5a7a35d5fcf5b7ca28aa8ab2252c0a83ebb711dc9ae87",
+        "apps/openssl.exe": "2df721d875949d09b650fb0f237f8aea9020f00d35c0432dfc10f260950a64a0"
+      },
+      "scope": "host static library build only; upstream test suite not run"
+    }
+  },
+  "remaining": [
+    "macOS x86_64",
+    "Mobile compile/link/runtime acceptance",
+    "System trust integration",
+    "Broader protocol and fault matrices",
+    "Public SDK containing the ownership fix and portable package release"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "format": "nyra-tls-fixture-stability-v1",
+  "status": "passed",
+  "binary_sha256": "2134c8af1370385a855376cbc7aba46771a843a4c334409c569a9e5e1c418782",
+  "rounds": 10,
+  "cases": [
+    "test_tls_stream_admission_budget_and_move",
+    "test_tls_stream_poll_callback_can_enqueue_and_close",
+    "test_tls_stream_drop_and_descriptor_recovery",
+    "test_tls_stream_admission_controls_and_empty_io"
+  ],
+  "passed": 40
+}

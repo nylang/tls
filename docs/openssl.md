@@ -12,6 +12,18 @@ the system OpenSSL installation. It records commands and archive/library hashes.
 The upstream OpenSSL test suite is not run by that script; package acceptance
 covers the bridge and its documented cases only.
 
+`--build-cli` also builds `apps/openssl` (`apps/openssl.exe` on Windows), so
+certificate generation need not depend on a sufficiently recent system CLI.
+Acceptance gives the CLI a private minimal configuration in the test output;
+system OpenSSL configuration and trust defaults do not define the fixtures.
+
+The Windows x86_64 build follows the upstream
+[native Visual C++ instructions](https://github.com/openssl/openssl/blob/openssl-3.5.9/NOTES-WINDOWS.md):
+use native Strawberry Perl, an x64 developer prompt, `VC-WIN64A`, NMake and
+static `libssl.lib`/`libcrypto.lib`. The initial recipe uses `no-asm` to avoid
+an additional assembler dependency; no optimized-assembly performance is
+claimed. Unix builds keep the normal provider configuration and Make path.
+
 OpenSSL is Apache-2.0 licensed; this package's own source is MIT. Retain
 OPENSSL-LICENSE.txt with redistributed OpenSSL libraries or statically linked
 products, along with this package's MIT license and any additional upstream
