@@ -1,6 +1,15 @@
 # TLS acceptance
 
-The current [control-boundary acceptance](../docs/control-boundary-acceptance-2026-10-27.json)
+The tag pipeline uses the exact public SDK 1.0.2 archives and manifests locked
+in [release.lock.json](../release.lock.json). Every desktop host must pass 31
+Nyra cases, 31 isolated replays, 60 native scenarios, production isolation and
+a moved source consumer before publication. The source release asset retains
+its exact four-host CI receipts under `evidence/` and identifies their sources,
+compiler, provider and sanitizer boundaries in `release.json`.
+
+## Retained local acceptance
+
+The [control-boundary acceptance](../docs/control-boundary-acceptance-2026-10-27.json)
 records **31 Nyra cases, 31 isolated replays and 60 native scenarios** on the three
 accepted desktop hosts, with matching source inputs and production isolation.
 macOS/Linux native tests use ASan/UBSan; Windows is unsanitized.
@@ -61,7 +70,7 @@ retains its original six-case/public-SDK-compiler evidence unchanged.
   neither their full test suite nor an instrumented full OpenSSL build is claimed.
 - 21 Nyra cases pass (six engine facade and 15 stream), plus 21 isolated replays.
   The source candidate uses public SDK 1.0.0 runtime packages, with source fallback
-  disabled. The published SDK compiler itself remains unsupported for the stream.
+  disabled. The SDK 1.0.0 compiler from that historical baseline does not support the stream.
 - O2 production precompilation succeeds without fixture/harness undefined imports.
   A separate ordinary net_core adapter build also has no TLS test interposition imports.
 
@@ -174,7 +183,7 @@ for before-fix evidence and host receipts. Each accepted host additionally passe
 ten rounds of the eight new cases (80 targeted replays). This is a controlled matrix, not every
 possible scheduling, readiness/error or shutdown/cancellation interleaving.
 
-## Remaining gates
+## Remaining gates for the historical source-candidate receipts
 
 - Additional certificate algorithms/critical extensions, other
   provider/runtime allocation failures, malformed

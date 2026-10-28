@@ -30,6 +30,11 @@ products, along with this package's MIT license and any additional upstream
 notices required by the chosen distribution. The native builder copies both
 licenses into its output directory. No FIPS validation is claimed.
 
+The 2026-10-28 pre-release review checked the [official release list](https://openssl-library.org/source/),
+[3.5 vulnerability list](https://openssl-library.org/news/vulnerabilities-3.5/)
+and [release/advisory timeline](https://openssl-library.org/news/timeline/).
+OpenSSL 3.5.9 remains the latest supported 3.5 LTS patch in those records.
+
 Before any public package release, check upstream security advisories and support
 status. On a relevant advisory or supported patch update, revise the pin explicitly,
 verify its official digest, rebuild all advertised target libraries, rerun
@@ -40,5 +45,5 @@ Provider replacement must preserve the public face and pass the same acceptance.
 
 System trust is a separate platform concern. This increment supports explicit PEM
 CA configuration only. It does not claim macOS Keychain, Windows certificate-store
-or mobile platform trust integration. HTTPS remains unavailable until the TLS
-transport and separate HTTP package are accepted.
+or mobile platform trust integration. HTTP/HTTPS consumers are delivered as
+separate packages.

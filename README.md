@@ -9,10 +9,10 @@ The package provides a **verified client engine and caller-driven TCP/Future
 TLS stream**. It uses net_core's public connection, byte-range, readiness and
 control APIs; net_core never imports TLS. HTTP/HTTPS remains a separate package.
 
-**Compiler requirement:** the stream needs the native deleted-copy ARC ownership
-fix discovered during integration. Published SDK 1.0.0/1.0.1 compilers contain the
-defect; use an explicit compatible source candidate with the public SDK runtime
-until a fixed SDK is accepted. No SDK promotion is implied by local TLS acceptance.
+**Compiler requirement:** Nyra SDK **1.0.2**. The stream requires its native
+ARC owner-return and selected variant-arm ownership fixes. SDK 1.0.0/1.0.1
+compilers are incompatible with this release. The release pipeline locks the
+public SDK archive and manifest hashes for every accepted desktop host.
 
 - Move-only `TlsSession` owns private native state and releases it through drop.
   Each client has an independent OpenSSL library context and algorithm cache.
@@ -45,12 +45,26 @@ DrainCiphertext becomes the transport driver's responsibility: retain unsent
 suffixes across partial TCP writes. Do not read more ciphertext than can be
 retained when FeedCiphertext admits only part of a buffer.
 
+## Source distribution
+
+The release pipeline produces `tls-0.1.0-source.tar.gz` with sibling `tls` and
+`net_core` packages, dependency locks and acceptance receipts. Its prepared
+manifests resolve stdlib from the installed SDK and net_core through
+`../net_core`. Keep those sibling directories together. Build the pinned
+OpenSSL libraries and native adapters with the supplied scripts before linking
+an application. The archive contains source only; native provider binaries and
+precompiled Nyra TLS libraries are built locally.
+
+GitHub's automatic source archives contain the TLS repository and its development
+workspace manifest. Distribution details and host limitations are recorded in
+[the release notes](docs/release-0.1.0.md) and the archive's `release.json`.
+
 ## Build and verify
 
 Build tools require Python 3.12+, Perl, Make and a host C compiler. Windows uses
 native Strawberry Perl and an x64 Visual Studio Developer Command Prompt with
 NMake; the initial Windows provider build disables assembly. All generated
-outputs must be outside this package. An explicitly selected public Nyra SDK,
+outputs must be outside this package. An explicitly selected public Nyra SDK 1.0.2,
 sibling net_core checkout and OpenSSL CLI 3.5+ are needed for full acceptance.
 Use `--build-cli` to build that CLI from the same checksum-pinned provider source;
 acceptance selects it automatically when present. `--openssl-cli` selects an
@@ -62,7 +76,6 @@ pinned 3.5.9 static libraries.
 python3 scripts/build_openssl.py --out-dir /absolute/cache/openssl-build --build-cli
 python3 scripts/accept.py \
   --sdk /absolute/path/to/nyra-sdk \
-  --compiler /absolute/path/to/compatible/nyrac \
   --net-core /absolute/path/to/net_core \
   --openssl-root /absolute/cache/openssl-build/openssl-3.5.9 \
   --out-dir /absolute/cache/tls-acceptance
@@ -96,7 +109,8 @@ net_core's native library and Nyra's platform runtime. POSIX may also need
 `-lpthread`/`-ldl`. Windows also needs OpenSSL's `ws2_32`, `gdi32`, `advapi32`,
 `crypt32` and `user32`, plus net_core's `iphlpapi` system library.
 No OpenSSL pointers or private bridge ABI are exported from
-`tls.ny`. Source manifests use the NyraLang workspace dependency layout; portable
-package distribution and unrecorded host acceptance remain open.
+`tls.ny`. Repository manifests use the NyraLang workspace layout; the release
+source asset includes the prepared portable manifests described above.
+Precompiled multitarget package delivery remains outside this source release.
 
 [Acceptance and retained receipt](tests/README.md); [remaining roadmap](ROADMAP.md).

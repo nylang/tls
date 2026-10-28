@@ -1,0 +1,99 @@
+name: TLS public SDK acceptance and source release
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: tls-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            host: darwin-arm64
+          - runner: macos-15-intel
+            host: darwin-x86_64
+          - runner: ubuntu-24.04
+            host: linux-x86_64
+          - runner: windows-2022
+            host: windows-x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13'
+      - name: Linux SDK runtime dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxml2 zlib1g libstdc++6
+      - name: Public SDK, pinned provider and full acceptance (Unix)
+        if: runner.os != 'Windows'
+        run: python3 -B scripts/ci.py --out-dir "$RUNNER_TEMP/tls-ci"
+      - name: Public SDK, pinned provider and full acceptance (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          python -B scripts/ci.py --out-dir "%RUNNER_TEMP%/tls-ci"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: acceptance-${{ matrix.host }}
+          path: |
+            ${{ runner.temp }}/tls-ci/ci-report.json
+            ${{ runner.temp }}/tls-ci/*.log
+            ${{ runner.temp }}/tls-ci/acceptance/*.json
+            ${{ runner.temp }}/tls-ci/acceptance/*.log
+          if-no-files-found: error
+          retention-days: 14
+  publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: desktop
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.13'
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: acceptance-*
+          path: ${{ runner.temp }}/tls-receipts
+      - name: Verify exact tested sources and assemble source-only distribution
+        shell: python
+        run: |
+          import json, os, pathlib, subprocess, sys
+          lock = json.loads(pathlib.Path('release.lock.json').read_text())
+          if os.environ['GITHUB_REF_NAME'] != 'v0.1.0':
+              raise ValueError('tag differs from TLS distribution version')
+          net = os.path.join(os.environ['RUNNER_TEMP'], 'locked-net-core')
+          subprocess.run(['git', 'init', net], check=True)
+          subprocess.run(['git', '-C', net, 'config', 'core.autocrlf', 'false'], check=True)
+          subprocess.run(['git', '-C', net, 'remote', 'add', 'origin', lock['net_core']['url']], check=True)
+          subprocess.run(['git', '-C', net, 'fetch', '--depth', '1', 'origin', lock['net_core']['commit']], check=True)
+          subprocess.run(['git', '-C', net, 'checkout', '--detach', 'FETCH_HEAD'], check=True)
+          subprocess.run([sys.executable, 'scripts/release_source.py', '--net-core', net, '--receipts', os.path.join(os.environ['RUNNER_TEMP'], 'tls-receipts'), '--out-dir', os.path.join(os.environ['RUNNER_TEMP'], 'tls-release')], check=True)
+      - name: Upload verified assets and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" --draft --title "TLS 0.1.0" --notes-file docs/release-0.1.0.md
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/tls-release/tls-0.1.0-source.tar.gz" "$RUNNER_TEMP/tls-release/release.json" "$RUNNER_TEMP/tls-release/SHA256SUMS"
+          gh release edit "$GITHUB_REF_NAME" --draft=false

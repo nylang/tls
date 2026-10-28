@@ -102,5 +102,6 @@ worker publish controls before native I/O returns. The worker never accesses a
 TlsStream. Deadline tests wait for the absolute time after reaching the rendezvous;
 reaching it and releasing it before its guard timeout are both asserted.
 
-[Acceptance](../tests/README.md) records three-host source-candidate coverage and
-remaining transition, allocation, macOS x86_64, mobile and release gates.
+[Acceptance](../tests/README.md) retains the historical three-host source-candidate
+coverage and describes the separate four-host public-SDK release gates. Broader
+transition/allocation matrices and mobile runtime acceptance remain open.

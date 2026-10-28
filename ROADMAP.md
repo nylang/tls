@@ -67,9 +67,9 @@ facade cases and 15 stream cases), plus 19 native bridge cases and production
 fixture isolation. See [stream contracts](docs/stream.md) and
 [acceptance](tests/README.md). The integration required a native compiler fix:
 ARC-backed facades with deleted copy must be moved, never implicitly cloned.
-The published SDK compilers remain unsupported for this stream until that fix
-is released; the runner supports an explicit native candidate and public SDK
-runtime. The subsequent [desktop acceptance](docs/desktop-acceptance-2026-10-27.json)
+SDK 1.0.0/1.0.1 compilers do not contain that fix. SDK 1.0.2 is the release
+baseline; the runner also supports an explicit native candidate with a separately
+identified SDK runtime. The subsequent [desktop acceptance](docs/desktop-acceptance-2026-10-27.json)
 records the same 21 cases/replays and 19 native cases on macOS arm64, Linux x86_64
 and Windows x86_64. macOS/Linux bridge cases use ASan/UBSan; Windows does not.
 Windows also passes 40 targeted repetitions of the four fixture-sensitive cases.
