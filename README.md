@@ -56,8 +56,11 @@ OpenSSL libraries and native adapters with the supplied scripts before linking
 an application. The archive contains source only; native provider binaries and
 precompiled Nyra TLS libraries are built locally.
 
-GitHub's automatic source archives contain the TLS repository and its development
-workspace manifest. Distribution details and host limitations are recorded in
+The existing v0.1.0 tag/archive retain their original manifests and acceptance
+identities. The current main checkout uses implicit SDK stdlib and a fixed public
+net_core Git dependency instead of publisher-local dependency paths. GitHub's
+automatic archives follow the selected commit; they do not bundle Git dependencies.
+Distribution details and host limitations for the historical release are recorded in
 [the release notes](docs/release-0.1.0.md),
 [publication receipt](docs/publication-0.1.0.json) and the archive's `release.json`.
 
@@ -111,8 +114,37 @@ net_core's native library and Nyra's platform runtime. POSIX may also need
 `-lpthread`/`-ldl`. Windows also needs OpenSSL's `ws2_32`, `gdi32`, `advapi32`,
 `crypt32` and `user32`, plus net_core's `iphlpapi` system library.
 No OpenSSL pointers or private bridge ABI are exported from
-`tls.ny`. Repository manifests use the NyraLang workspace layout; the release
-source asset includes the prepared portable manifests described above.
+`tls.ny`. Current repository manifests use public Git dependencies and implicit
+SDK runtimes; the historical v0.1.0 source asset retains its bundled manifests.
 Precompiled multitarget package delivery remains outside this source release.
 
 [Acceptance and retained receipt](tests/README.md); [remaining roadmap](ROADMAP.md).
+
+## Portable Git dependency
+
+Source imports use the installed SDK's implicit runtime packages (SDK 1.0.2 or
+later); package manifests contain no paths into the private compiler checkout.
+For automatic Git preparation use native `nyra` 1.0.3 or later. That manager's
+public SDK publication is separate from this package; SDK 1.0.2 does not ship it.
+SDK 1.0.2 users can use the existing prepared v0.1.0 source release described
+above; cloning current TLS alone does not acquire its transitive Git dependency.
+
+Add this dependency to your application's `package.yaml`:
+
+```yaml
+dependencies:
+  tls:
+    git: https://github.com/nylang/tls.git
+    rev: main
+```
+
+Then run `nyra lock ./app` and commit `nyra.lock`; use
+`nyra fetch ./app --frozen` to prepare the pinned graph again. `main` above is
+an initial selector; the lock fixes the exact commit/content. Normal compiler
+and analyzer operations do not fetch dependencies. Historical tags are immutable
+and may retain older workspace-specific manifests.
+
+For local multi-package development, list package-file pointers in a common
+`workspace.yaml`. Workspace replacements keep Git declarations shareable;
+origin lock updates deliberately disable replacements. A package entry and its
+SDK can move without rewriting publisher paths.

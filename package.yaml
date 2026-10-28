@@ -2,10 +2,9 @@ name: tls
 version: 0.1.0
 license: MIT
 dependencies:
-  stdlib:
-    path: ../../source/stdlib
   net_core:
-    path: ../net_core
+    git: https://github.com/nylang/netcore.git
+    rev: e86cf3b732b97ef7198e8e461ecd550c65b2c8cb
 directories:
   interface:
     - interface
