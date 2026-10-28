@@ -212,3 +212,17 @@ extend the previous 60. Each host also passes the full streamed HTTPS regression
 Intel macOS is pending authorized SSH recovery, so the overall desktop matrix
 remains partial. These records retain their exact source snapshot and do not
 change the published 0.1.0 acceptance or claim complete provider-state/fault coverage.
+
+## Published 0.2.0
+
+[tls 0.2.0](https://github.com/nylang/tls/releases/tag/v0.2.0) is a source-only release. Its package.yaml
+retains immutable public Git dependencies; the source assets preserve the
+original declarations without relative sibling rewrites. Corrected Nyra 1.0.4
+tools are required for locked Git consumption; that SDK is not yet publicly
+released. The HTTP release's [Git consumer evidence](https://github.com/nylang/http/releases/download/v0.1.0/git-consumer-acceptance.json) includes this TLS revision and has passed lock/fetch, relocation/offline,
+semantic checking, native linking and execution with the source tool candidate.
+Protocol qualification with public SDK 1.0.2 is recorded separately.
+
+See the [publication receipt](docs/publication-0.2.0.json) for exact
+sources, assets and native desktop qualification. Historical development
+receipts retain their original pending/partial state and are not rewritten.

@@ -96,9 +96,13 @@ Remaining hosts, complete fault matrices and release acceptance remain T3.
       macOS arm64, Linux x86_64 and Windows x86_64 pass 39 cases/replays and 73
       native cases each, plus the complete 88/88 HTTP and 181 network/control
       regression scope. Bridge/harness sanitizers apply on macOS/Linux, not Windows.
-- [ ] Native Intel macOS qualification awaits restored authorized SSH access;
-      existing published receipts cannot establish this new source candidate.
-      This is local source development, not a new TLS release or mobile acceptance.
+- [x] Native Intel macOS qualification completed in the TLS 0.2.0 tag pipeline,
+      together with the other three desktop hosts: 39 cases/replays and 73 native
+      cases per host. See [publication](docs/publication-0.2.0.json). Earlier
+      development receipts retain their original pending state; no mobile claim.
+- [x] TLS 0.2.0 source release preserves immutable Git manifests without relative
+      dependency rewriting. Git-consumer verification uses corrected source 1.0.4
+      tools; their SDK publication remains separate.
 
 ## T3 — Platform trust and delivery
 

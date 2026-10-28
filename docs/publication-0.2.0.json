@@ -1,0 +1,64 @@
+{
+  "format": "nyra-tls-publication-v1",
+  "version": "0.2.0",
+  "source_commit": "7b6f9a870e74f32cab625391e8a1395ef872c23e",
+  "url": "https://github.com/nylang/tls/releases/tag/v0.2.0",
+  "published_at": "2026-10-28T11:12:10Z",
+  "workflow_run": 40676245441,
+  "workflow_conclusion": "success",
+  "hosts": {
+    "darwin-arm64": {
+      "compiler_sha256": "5e4696618e0c744eab853c307b57e47f11222e2d36faa8d88b5e6c7f2ab6b335",
+      "tests": 39,
+      "isolated_replays": 39,
+      "native_cases": 73,
+      "sanitized": true,
+      "relocated_consumer": "passed"
+    },
+    "linux-x86_64": {
+      "compiler_sha256": "72e2d44322047cb6d549db18692ea2c77f3e67ca839cf0c867bcdc503ffe3382",
+      "tests": 39,
+      "isolated_replays": 39,
+      "native_cases": 73,
+      "sanitized": true,
+      "relocated_consumer": "passed"
+    },
+    "darwin-x86_64": {
+      "compiler_sha256": "7bb9f54c70ec2356e6e373adbf79166538838bf59c453585258460daaf103cef",
+      "tests": 39,
+      "isolated_replays": 39,
+      "native_cases": 73,
+      "sanitized": true,
+      "relocated_consumer": "passed"
+    },
+    "windows-x86_64": {
+      "compiler_sha256": "430f1095f79864ada1d0a261d08445e04557c0bc22eea0ae91256a564601bfdb",
+      "tests": 39,
+      "isolated_replays": 39,
+      "native_cases": 73,
+      "sanitized": false,
+      "relocated_consumer": "passed"
+    }
+  },
+  "manifest_policy": "Original immutable Git dependency declarations, no relative rewrite.",
+  "assets": [
+    {
+      "name": "release.json",
+      "digest": "sha256:45880aa895d174f24489d3d8f9c3f251a064af6551002b1b5ad189c6376c2e96",
+      "size": 3006,
+      "url": "https://github.com/nylang/tls/releases/download/v0.2.0/release.json"
+    },
+    {
+      "name": "SHA256SUMS",
+      "digest": "sha256:95dbecdcdcf42d8e4c6805b1ce85856a19c75cd646d141ab77c870759c0cd7f9",
+      "size": 169,
+      "url": "https://github.com/nylang/tls/releases/download/v0.2.0/SHA256SUMS"
+    },
+    {
+      "name": "tls-0.2.0-source.tar.gz",
+      "digest": "sha256:7c0e59bdf69da0eb0bc25f287fc21525b0b1b05a0fb443999e5929f0dcd938a0",
+      "size": 325009,
+      "url": "https://github.com/nylang/tls/releases/download/v0.2.0/tls-0.2.0-source.tar.gz"
+    }
+  ]
+}
