@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "version": "0.1.0",
+  "url": "https://github.com/nylang/tls/releases/tag/v0.1.0",
+  "published_at": "2026-10-28T02:03:53Z",
+  "source_commit": "1e0e6ff7879f0ea7e544dba767f22cb86f5b129d",
+  "net_core_commit": "d15214cd47ac731a81b1481cb59b9d2c5f8a8335",
+  "sdk": {
+    "version": "1.0.2",
+    "hosts": {
+      "darwin-arm64": {
+        "archive_sha256": "f24b3e8cc57ddd4a43728e36e3143da1d5b0b85c5105ae137ac7147d24b577ad",
+        "manifest_sha256": "4b5c0d4287d388e2cd1c3272e15f8707df57ddd6d0f6dbf9972602ed63ce5db8"
+      },
+      "darwin-x86_64": {
+        "archive_sha256": "28e8461046cf7e62bab2e94a39f87c6b90ca552c0f5de633a222ff9fe49826be",
+        "manifest_sha256": "51b8609dba9190f187fabcb1d4a3040a43b68e328050c791b44a37cea2ffc8a0"
+      },
+      "linux-x86_64": {
+        "archive_sha256": "fe5e43b6f62eeecbf9f9e3968351a0eddd63a35616fc1b0e6e5cb05d8e31d379",
+        "manifest_sha256": "b24876c0cf1e2fb0e0ae03511328d63994f4596c187b715bbb435c4ba0ef53c7"
+      },
+      "windows-x86_64": {
+        "archive_sha256": "f028f4c697dde57129d9c8f595ffcaedd377a5784c0d3eba3a7c6bff731fd48a",
+        "manifest_sha256": "507fc2f90dd88bb9fd1d55d1569698778abda8900f2cb28b64221a70691e8833"
+      }
+    }
+  },
+  "openssl": {
+    "version": "3.5.9",
+    "series": "3.5 LTS",
+    "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+    "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+    "license": "Apache-2.0",
+    "support_until": "2030-04-08",
+    "source": "https://openssl-library.org/source/"
+  },
+  "scope": "Source-only distribution; build the pinned OpenSSL and native adapters locally. Four desktop hosts accepted against the exact public SDK. Explicit CA trust required; no mobile/server/mTLS/system-trust claim.",
+  "hosts": {
+    "darwin-x86_64": {
+      "compiler_sha256": "7bb9f54c70ec2356e6e373adbf79166538838bf59c453585258460daaf103cef",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_cases": 60,
+      "sanitized": true,
+      "relocated_consumer": "passed"
+    },
+    "linux-x86_64": {
+      "compiler_sha256": "72e2d44322047cb6d549db18692ea2c77f3e67ca839cf0c867bcdc503ffe3382",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_cases": 60,
+      "sanitized": true,
+      "relocated_consumer": "passed"
+    },
+    "windows-x86_64": {
+      "compiler_sha256": "430f1095f79864ada1d0a261d08445e04557c0bc22eea0ae91256a564601bfdb",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_cases": 60,
+      "sanitized": false,
+      "relocated_consumer": "passed"
+    },
+    "darwin-arm64": {
+      "compiler_sha256": "5e4696618e0c744eab853c307b57e47f11222e2d36faa8d88b5e6c7f2ab6b335",
+      "tests": 31,
+      "isolated_replays": 31,
+      "native_cases": 60,
+      "sanitized": true,
+      "relocated_consumer": "passed"
+    }
+  },
+  "assets": {
+    "release.json": {
+      "bytes": 2943,
+      "sha256": "335f128042a33b5d0deefc35de5dcb59838c47cbb314e1a0f20e15f034a43d5c"
+    },
+    "SHA256SUMS": {
+      "bytes": 169,
+      "sha256": "c7595a2f313e874337e59d20b79108c4682b1e403afbcadc18abeadb6e3bc70e"
+    },
+    "tls-0.1.0-source.tar.gz": {
+      "bytes": 259378,
+      "sha256": "a025c736db3bd1e562ec5ba76e792adb8ee1a50986d774e51768e3fa130b5287"
+    }
+  },
+  "manual_acceptance": {
+    "run_id": 40614052944,
+    "url": "https://github.com/nylang/tls/actions/runs/40614052944",
+    "status": "passed on all four desktop hosts"
+  },
+  "source_packaging_preflight": "Passed using the exact four manual CI receipts and a clean locked net_core checkout before tagging.",
+  "tag_acceptance": {
+    "run_id": 40615633181,
+    "url": "https://github.com/nylang/tls/actions/runs/40615633181",
+    "accepted_attempt": 2,
+    "status": "success",
+    "retry": {
+      "host": "darwin-x86_64",
+      "first_attempt_result": "Outer 600-second complete native-suite timeout while the process-based allocation sweep was reporting progress.",
+      "accepted_retry": "Same immutable source tag, same complete cases, unchanged per-command and outer budgets. Failed logs retained; only its failed artifact was replaced to avoid a retry name collision."
+    }
+  },
+  "limitations": "Explicit PEM CA trust; desktop client engine/stream only. No mobile/server/mTLS/system-store support or provider/FIPS/signing attestation is added."
+}

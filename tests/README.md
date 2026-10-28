@@ -7,6 +7,14 @@ a moved source consumer before publication. The source release asset retains
 its exact four-host CI receipts under `evidence/` and identifies their sources,
 compiler, provider and sanitizer boundaries in `release.json`.
 
+The [published 0.1.0 receipt](../docs/publication-0.1.0.json) records all four
+public-SDK host results and the three verified release assets. Manual acceptance
+and complete source packaging passed before the immutable version tag. The tag
+Intel job first reached the outer 600-second full-native-suite budget; the
+same-source retry passed the full matrix with unchanged cases and limits.
+Individual native commands retain their separate 120-second budget. Slow-host
+suite-budget configurability remains a CI follow-up, not a changed TLS deadline.
+
 ## Retained local acceptance
 
 The [control-boundary acceptance](../docs/control-boundary-acceptance-2026-10-27.json)

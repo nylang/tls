@@ -47,7 +47,8 @@ retained when FeedCiphertext admits only part of a buffer.
 
 ## Source distribution
 
-The release pipeline produces `tls-0.1.0-source.tar.gz` with sibling `tls` and
+[TLS 0.1.0](https://github.com/nylang/tls/releases/tag/v0.1.0) provides
+`tls-0.1.0-source.tar.gz` with sibling `tls` and
 `net_core` packages, dependency locks and acceptance receipts. Its prepared
 manifests resolve stdlib from the installed SDK and net_core through
 `../net_core`. Keep those sibling directories together. Build the pinned
@@ -57,7 +58,8 @@ precompiled Nyra TLS libraries are built locally.
 
 GitHub's automatic source archives contain the TLS repository and its development
 workspace manifest. Distribution details and host limitations are recorded in
-[the release notes](docs/release-0.1.0.md) and the archive's `release.json`.
+[the release notes](docs/release-0.1.0.md),
+[publication receipt](docs/publication-0.1.0.json) and the archive's `release.json`.
 
 ## Build and verify
 

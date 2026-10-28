@@ -84,18 +84,28 @@ Remaining hosts, complete fault matrices and release acceptance remain T3.
 
 ## T3 — Platform trust and delivery
 
-- [x] Linux x86_64 native compilation and behavior: 31 TLS cases, 31 isolated
-      replays and 60 ASan/UBSan native scenarios using a fixed native compiler candidate.
-- [x] Windows x86_64 native compilation and behavior: 31 TLS cases, 31 isolated
-      replays and 60 unsanitized native scenarios; prior fixture-stability evidence is retained.
-- [ ] macOS x86_64 acceptance.
-- [ ] Explicit system-trust integration per advertised platform, or retain documented
-      explicit CA-only support; never infer Keychain support from OpenSSL defaults.
+- [x] Linux x86_64 public-SDK acceptance: 31 Nyra cases, 31 isolated replays and
+      60 native scenarios with ASan/UBSan on the bridge and harness.
+- [x] Windows x86_64 public-SDK acceptance: the same 31/31/60 scope, explicitly
+      unsanitized; prior fixture-stability evidence is retained.
+- [x] macOS arm64 and x86_64 public-SDK acceptance: the same 31/31/60 scope,
+      with ASan/UBSan on the bridge and harness.
+- [x] Retain explicit PEM CA-only support. Platform system-store integration is
+      not advertised and is never inferred from OpenSSL defaults.
 - [ ] Android/iOS static builds, matching SDK/sysroot links and mobile runtime checks.
-- [ ] Standalone public-SDK CI, source/dependency lock, licenses and portable consumers.
+- [x] Standalone public-SDK CI, source/dependency lock, licenses and portable consumers.
 - [x] Public source repository at https://github.com/nylang/tls.
-- [ ] Release artifacts, with exact source/library receipts.
-- [ ] Recheck upstream advisories/pin before release and pass the complete advertised matrix.
+- [x] Release source artifacts, with exact source/library receipts.
+- [x] Recheck upstream advisories/pin before release and pass the advertised desktop matrix.
+- [ ] Make the complete native-suite outer budget configurable for slower CI hosts;
+      preserve individual protocol/control deadlines and every allocation-injection case.
+
+[TLS 0.1.0](https://github.com/nylang/tls/releases/tag/v0.1.0) is published against
+checksum-pinned public SDK 1.0.2 and net_core `d15214cd`. The
+[publication receipt](docs/publication-0.1.0.json) records the exact source, assets
+and four-host acceptance. The first tag Intel attempt reached the 600-second
+outer native-suite limit; the unchanged retry passed all cases. No tag, test
+selection or time budget was changed for the accepted release.
 
 Server configuration, mutual TLS and session resumption have no current public
 implementation. They need explicit API/acceptance work before being advertised.
