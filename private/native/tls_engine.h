@@ -18,6 +18,7 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
 void nyra_tls_drop(ntls_session *session);
 ntls_result nyra_tls_handshake(ntls_session *session);
 ntls_result nyra_tls_read(ntls_session *session, uint8_t *out, intptr_t size);
+ntls_result nyra_tls_probe_read(ntls_session *session, uint8_t *out, intptr_t size);
 ntls_result nyra_tls_write(ntls_session *session, const uint8_t *data, intptr_t size);
 ntls_result nyra_tls_shutdown(ntls_session *session);
 ntls_result nyra_tls_feed(ntls_session *session, const uint8_t *data, intptr_t size);

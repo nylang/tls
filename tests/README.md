@@ -204,3 +204,25 @@ possible scheduling, readiness/error or shutdown/cancellation interleaving.
 
 See [the maintained TLS roadmap](../ROADMAP.md). No HTTPS, FIPS, public package
 release or complete absence of memory leaks is established by these results.
+
+
+## Optional channel and read-probe increment
+
+Eight new Nyra cases extend the prior 31: probe state/original controls plus
+channel validation/adoption, moves, patterned short writes/owned reads,
+requested KeyUpdate, abort without flushing accepted records, cancellation after
+acceptance, sticky native failure and raw truncation. Thirteen native cases
+exercise TLS 1.2/1.3 idle/partial-record probes across writes, pending-operation
+reservations, tampered plaintext suppression, authenticated/raw EOF and repeated
+KeyUpdates. The probe's shared out-storage C dispatcher is exercised with real
+provider plaintext; no fixture bypass is added to the production bridge.
+
+[Channel receipts](../docs/channel-acceptance-2026-10-28.json) record 39 cases and
+39 isolated replays plus 73 native cases per tested host, using matching SDK 1.0.2
+on macOS arm64, Linux x86_64 and Windows x86_64. The bridge and harness use
+ASan/UBSan on macOS/Linux; Windows is unsanitized, and the provider archive is not
+claimed fully instrumented. Each exact compiler and 346 native runtime files are
+verified. Intel macOS remains pending authorized SSH recovery. The concurrent
+HTTP regression and retained Windows TCP redirect-open failure/retry history are
+linked from the receipts. General provider retry/fault interleavings, mobile
+and a separately authorized package release remain outside this increment.

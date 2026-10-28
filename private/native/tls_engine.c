@@ -18,7 +18,7 @@ struct ntls_session {
   SSL *ssl;
   BIO *wire;
   int handshaken, closing, failed, input_ended;
-  int pending; /* 0 none, 1 read, 2 write; one caller-thread operation at a time. */
+  int pending; /* 0 none, 1 read, 2 write, 3 read-probe retry; one caller-thread operation at a time. */
   size_t write_size, read_size;
   uint8_t write_retry[NTLS_RECORD];
   uint8_t read_retry[NTLS_RECORD];
@@ -117,9 +117,7 @@ done:
   return error;
 }
 static int available(ntls_session *s) { return s && !s->failed; }
-static ntls_result classify(ntls_session *s, int rc, size_t count) {
-  /* Must be the first OpenSSL call after the TLS operation, on the same thread. */
-  int error = SSL_get_error(s->ssl, rc);
+static ntls_result classify_error(ntls_session *s, int error, size_t count) {
   if (error == SSL_ERROR_NONE) return result(NTLS_COMPLETE, NTLS_OK, count);
   if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
     /* Flush a generated flight even when OpenSSL itself wants more input. */
@@ -144,6 +142,11 @@ static ntls_result classify(ntls_session *s, int rc, size_t count) {
     return failure(NTLS_EOF);
   return failure(NTLS_PROTOCOL);
 }
+static ntls_result classify(ntls_session *s, int rc, size_t count) {
+  /* Must be the first OpenSSL call after the TLS operation, on the same thread. */
+  int error = SSL_get_error(s->ssl, rc);
+  return classify_error(s, error, count);
+}
 ntls_result nyra_tls_handshake(ntls_session *s) {
   if (!available(s)) return failure(NTLS_CLOSED);
   if (s->closing) return failure(NTLS_STATE);
@@ -156,7 +159,7 @@ ntls_result nyra_tls_handshake(ntls_session *s) {
 }
 ntls_result nyra_tls_write(ntls_session *s, const uint8_t *data, intptr_t size) {
   if (!available(s)) return failure(NTLS_CLOSED);
-  if (!s->handshaken || s->closing || s->pending == 1) return failure(NTLS_STATE);
+  if (!s->handshaken || s->closing || s->pending == 1 || s->pending == 3) return failure(NTLS_STATE);
   if (!range_ok(data, size) || size > NTLS_RECORD) return failure(NTLS_ARGUMENT);
   if (s->pending == 2) {
     if ((size_t)size != s->write_size || memcmp(data, s->write_retry, (size_t)size)) return failure(NTLS_STATE);
@@ -176,7 +179,7 @@ ntls_result nyra_tls_write(ntls_session *s, const uint8_t *data, intptr_t size) 
 }
 ntls_result nyra_tls_read(ntls_session *s, uint8_t *out, intptr_t size) {
   if (!available(s)) return failure(NTLS_CLOSED);
-  if (!s->handshaken || s->closing || s->pending == 2) return failure(NTLS_STATE);
+  if (!s->handshaken || s->closing || s->pending == 2 || s->pending == 3) return failure(NTLS_STATE);
   if (!range_ok(out, size) || size > NTLS_RECORD) return failure(NTLS_ARGUMENT);
   if (s->pending == 1 && (size_t)size != s->read_size) return failure(NTLS_STATE);
   if (!size) return result(NTLS_COMPLETE, NTLS_OK, 0);
@@ -189,9 +192,29 @@ ntls_result nyra_tls_read(ntls_session *s, uint8_t *out, intptr_t size) {
   if (rc == 1) memcpy(out, s->read_retry, read_size);
   return progress;
 }
+/* A separate opt-in probe: an ordinary read's reservation is never released.
+ * The internal SSL_read buffer and capacity stay identical across idle probes.
+ * WANT_READ permits later writes; actual WANT_WRITE reserves this exact probe.
+ * Report WANT_READ independently of already queued outbound application records.
+ */
+ntls_result nyra_tls_probe_read(ntls_session *s, uint8_t *out, intptr_t size) {
+  if (!available(s)) return failure(NTLS_CLOSED);
+  if (!s->handshaken || s->closing || (s->pending && s->pending != 3)) return failure(NTLS_STATE);
+  if (!out || size != NTLS_RECORD) return failure(NTLS_ARGUMENT);
+  s->pending = 3;
+  size_t read_size = 0;
+  ERR_clear_error();
+  int rc = SSL_read_ex(s->ssl, s->read_retry, NTLS_RECORD, &read_size);
+  int error = SSL_get_error(s->ssl, rc);
+  ntls_result progress = error == SSL_ERROR_WANT_READ ? result(NTLS_INPUT, NTLS_OK, 0) :
+      classify_error(s, error, read_size);
+  if (error != SSL_ERROR_WANT_WRITE) s->pending = 0;
+  if (rc == 1) memcpy(out, s->read_retry, read_size);
+  return progress;
+}
 ntls_result nyra_tls_shutdown(ntls_session *s) {
   if (!available(s)) return failure(NTLS_CLOSED);
-  if (!s->handshaken || s->pending == 2) return failure(NTLS_STATE);
+  if (!s->handshaken || s->pending == 2 || s->pending == 3) return failure(NTLS_STATE);
   /* A pending read may be abandoned to initiate protocol shutdown. */
   s->pending = 0; s->closing = 1;
   ERR_clear_error();
@@ -248,6 +271,7 @@ void nyra_tls_step(ntls_session *s, int32_t operation, const uint8_t *input,
     case 4: *out = nyra_tls_feed(s, input, size); break;
     case 5: *out = nyra_tls_drain(s, output, size); break;
     case 6: *out = nyra_tls_alpn(s, output, size); break;
+    case 7: *out = nyra_tls_probe_read(s, output, size); break;
     default: *out = failure(NTLS_ARGUMENT); break;
   }
 }

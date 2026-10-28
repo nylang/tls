@@ -15,7 +15,7 @@ class SourceDistributionTests(unittest.TestCase):
         row={'relocated_consumer':'passed','sanitized':True,'acceptance':{
             'status':'passed','compiler_origin':'public-sdk','sdk_version':'1.0.2',
             'compiler_sha256':'a'*64,'sdk_compiler_sha256':'a'*64,
-            'tests':{'passed':31,'failed':0},'isolated_replays':31,'native_cases':[{}]*60,
+            'tests':{'passed':39,'failed':0},'isolated_replays':39,'native_cases':[{}]*73,
             'source_fallback_disabled':True,'production_fixture_imports':[],
             'native_production_fixture_symbols':[]}}
         RELEASE.validate_acceptance(row,'linux-x86_64','1.0.2')
@@ -31,7 +31,7 @@ class SourceDistributionTests(unittest.TestCase):
     def source(self,root):
         source=root/'source';source.mkdir()
         subprocess.run(['git','init',source],check=True,capture_output=True)
-        (source/'package.yaml').write_text('name: workspace\n')
+        (source/'package.yaml').write_text('name: tls\nversion: 0.2.0\ndependencies:\n  net_core:\n    git: https://github.com/nylang/netcore.git\n    rev: '+('e'*40)+'\n')
         (source/'entry.ny').write_text('/** @brief Public test input. */\n')
         (source/'secret-untracked').write_text('must not ship')
         subprocess.run(['git','-C',source,'add','package.yaml','entry.ny'],check=True,capture_output=True)
@@ -42,7 +42,9 @@ class SourceDistributionTests(unittest.TestCase):
             RELEASE.prepare_tree(source,target,'tls')
             manifest=(target/'package.yaml').read_text()
             self.assertTrue(manifest.startswith('name: tls\n'))
-            self.assertIn('path: ../net_core',manifest)
+            self.assertIn('git: https://github.com/nylang/netcore.git',manifest)
+            self.assertNotIn('path:',manifest)
+            self.assertEqual(manifest,(source/'package.yaml').read_text())
             self.assertNotIn('stdlib:',manifest)
             self.assertFalse((target/'secret-untracked').exists())
             self.assertFalse((target/'.git').exists())
@@ -53,9 +55,7 @@ class SourceDistributionTests(unittest.TestCase):
             root=Path(temporary);source=self.source(root);target=root/'net_core'
             RELEASE.prepare_tree(source,target,'net_core')
             manifest=(target/'package.yaml').read_text()
-            self.assertTrue(manifest.startswith('name: net_core\n'))
-            self.assertIn('  public:\n    - public',manifest)
-            self.assertNotIn('dependencies:',manifest)
+            self.assertEqual(manifest,(source/'package.yaml').read_text())
     def test_tracked_symlink_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);source=self.source(root)

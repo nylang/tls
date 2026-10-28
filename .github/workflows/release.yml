@@ -79,7 +79,7 @@ jobs:
         run: |
           import json, os, pathlib, subprocess, sys
           lock = json.loads(pathlib.Path('release.lock.json').read_text())
-          if os.environ['GITHUB_REF_NAME'] != 'v0.1.0':
+          if os.environ['GITHUB_REF_NAME'] != 'v0.2.0':
               raise ValueError('tag differs from TLS distribution version')
           net = os.path.join(os.environ['RUNNER_TEMP'], 'locked-net-core')
           subprocess.run(['git', 'init', net], check=True)
@@ -94,6 +94,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" --draft --title "TLS 0.1.0" --notes-file docs/release-0.1.0.md
-          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/tls-release/tls-0.1.0-source.tar.gz" "$RUNNER_TEMP/tls-release/release.json" "$RUNNER_TEMP/tls-release/SHA256SUMS"
+          gh release create "$GITHUB_REF_NAME" --draft --title "TLS 0.2.0" --notes-file docs/release-0.2.0.md
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/tls-release/tls-0.2.0-source.tar.gz" "$RUNNER_TEMP/tls-release/release.json" "$RUNNER_TEMP/tls-release/SHA256SUMS"
           gh release edit "$GITHUB_REF_NAME" --draft=false

@@ -124,16 +124,17 @@ static void key_update_message(int writing, int version, int type, const void *b
     ++*(int *)argument;
   }
 }
-static void key_updates(int requested) {
+static void key_updates(int requested, int probe) {
   ntls_session *c = client("localhost", ca_path, "", 1024);
   SSL *s = server(TLS1_3_VERSION); link wire = {0};
   CHECK(handshake(c, s, &wire) == NTLS_OK);
   int responses = 0;
   SSL_set_msg_callback(s, key_update_message); SSL_set_msg_callback_arg(s, &responses);
   for (int cycle = 0; cycle < 4; ++cycle) {
-    uint8_t out[64], payload[32];
+    uint8_t out[16384], payload[32];
+    size_t capacity = probe ? sizeof(out) : 64;
     for (size_t i = 0; i < sizeof(payload); ++i) payload[i] = (uint8_t)(cycle * 32 + i);
-    ntls_result waiting = nyra_tls_read(c, out, sizeof(out));
+    ntls_result waiting = probe ? nyra_tls_probe_read(c, out, capacity) : nyra_tls_read(c, out, capacity);
     CHECK(!waiting.error && waiting.status == NTLS_INPUT && !waiting.count);
     CHECK(SSL_key_update(s, requested ? SSL_KEY_UPDATE_REQUESTED : SSL_KEY_UPDATE_NOT_REQUESTED));
     CHECK(SSL_do_handshake(s) == 1);
@@ -141,7 +142,7 @@ static void key_updates(int requested) {
     int completed = 0;
     for (int i = 0; i < 20000 && !completed; ++i) {
       relay(c, s, &wire);
-      ntls_result read = nyra_tls_read(c, out, sizeof(out)); CHECK(!read.error);
+      ntls_result read = probe ? nyra_tls_probe_read(c, out, capacity) : nyra_tls_read(c, out, capacity); CHECK(!read.error);
       if (read.status == NTLS_COMPLETE) {
         CHECK(read.count == sizeof(payload) && !memcmp(out, payload, sizeof(payload))); completed = 1;
       } else CHECK(read.status == NTLS_INPUT || read.status == NTLS_OUTPUT);
@@ -234,6 +235,7 @@ static void eof_cases(int clean) {
   CHECK(nyra_tls_feed(c, out, 1).error == (clean ? NTLS_STATE : NTLS_CLOSED));
   nyra_tls_drop(c); SSL_free(s);
 }
+#include "read_probe_cases.h"
 int main(int argc, char **argv) {
   CHECK(argc == 8); ca_path = argv[1]; cert_path = argv[2]; key_path = argv[3]; other_ca = argv[4];
   verify_handshake(TLS1_2_VERSION, "localhost", "http/1.1"); pass("verified TLS 1.2 DNS identity and SNI/ALPN");
@@ -260,9 +262,12 @@ int main(int argc, char **argv) {
   bad_record(TLS1_3_VERSION, 0); pass("TLS 1.3 tampered record yields no plaintext and terminal Protocol error");
   bad_record(TLS1_2_VERSION, 1); pass("TLS 1.2 record replay never duplicates authenticated plaintext");
   bad_record(TLS1_3_VERSION, 1); pass("TLS 1.3 record replay never duplicates authenticated plaintext");
-  key_updates(0); pass("four TLS 1.3 peer key updates preserve bidirectional traffic without unsolicited replies");
-  key_updates(1); pass("four requested TLS 1.3 key updates rotate both directions with non-requesting replies");
+  key_updates(0, 0); pass("four TLS 1.3 peer key updates preserve bidirectional traffic without unsolicited replies");
+  key_updates(1, 0); pass("four requested TLS 1.3 key updates rotate both directions with non-requesting replies");
   read_retry_storage(); pass("pending read rejects size changes and safely replaces caller storage");
+  read_probe_cases();
+  key_updates(0, 1); pass("read probes preserve four non-requesting TLS 1.3 key updates and bidirectional traffic");
+  key_updates(1, 1); pass("read probes preserve four requested TLS 1.3 key updates with exact replies");
   certificate_cases(argv[7]);
   eof_cases(0); pass("transport truncation is unexpected EOF");
   eof_cases(1); pass("close_notify remains authenticated EOF after transport FIN");

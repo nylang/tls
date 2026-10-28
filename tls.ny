@@ -4,3 +4,5 @@ import "interface/tls.ni";
 import "private/tls.ny";
 export "interface/stream.ni";
 import "interface/stream.ni";
+export "interface/channel.ni";
+import "interface/channel.ni";

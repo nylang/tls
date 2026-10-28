@@ -23,6 +23,11 @@
   },
   "net_core": {
     "url": "https://github.com/nylang/netcore.git",
-    "commit": "d15214cd47ac731a81b1481cb59b9d2c5f8a8335"
+    "commit": "e86cf3b732b97ef7198e8e461ecd550c65b2c8cb"
+  },
+  "version": "0.2.0",
+  "acceptance": {
+    "nyra_cases": 39,
+    "native_cases": 73
   }
 }

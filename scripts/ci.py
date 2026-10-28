@@ -55,6 +55,11 @@ def main():
         if not win and platform.system()=='Darwin':env|={'SDKROOT':subprocess.check_output(['xcrun','--show-sdk-path'],text=True).strip(),'MACOSX_DEPLOYMENT_TARGET':'14.0'}
         run('tls-native',[sys.executable,PACKAGE/'scripts/build_native.py','--openssl-root',ssl,'--out-dir',out/'tls-native','--cc',kit/('clang'+suffix),'--ar',kit/('llvm-ar'+suffix)],env)
         stage=out/'portable';stage.mkdir();prepare_tree(PACKAGE,stage/'tls','tls');prepare_tree(net,stage/'net_core','net_core');moved=out/'moved';stage.rename(moved)
+        # SDK 1.0.2 predates Git locking. This private acceptance overlay is never shipped.
+        public_manifest=(moved/'tls/package.yaml').read_bytes()
+        private_manifest='name: tls\nversion: 0.2.0\ndependencies:\n  net_core:\n    path: '+json.dumps(str(moved/'net_core'))+'\ndirectories:\n  interface:\n    - interface\n  private:\n    - private\n    - tests\n'
+        (moved/'tls/package.yaml').write_text(private_manifest)
+        report['consumer_manifest_overlay']={'scope':'Private SDK 1.0.2 protocol/link consumer, not a shipped manifest or a Git-lock acceptance claim.','original_sha256':hashlib.sha256(public_manifest).hexdigest(),'overlay_sha256':digest(moved/'tls/package.yaml')}
         consumer=moved/'consumer';consumer.mkdir();(consumer/'package.yaml').write_text('name: tls_consumer\ndependencies:\n  tls:\n    path: ../tls\n  net_core:\n    path: ../net_core\n')
         ca=json.dumps(str(out/'acceptance/native-acceptance/ca.pem'))
         (consumer/'main.ny').write_text('''/** @brief Relocated source consumer using implicit public SDK runtimes. */

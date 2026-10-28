@@ -1,0 +1,746 @@
+{
+  "format": "nyra-tls-sdk-acceptance-v1",
+  "status": "passed",
+  "host": "Windows-11-10.0.26300-SP0",
+  "sdk_version": "1.0.2",
+  "sdk_manifest_sha256": "507fc2f90dd88bb9fd1d55d1569698778abda8900f2cb28b64221a70691e8833",
+  "compiler_sha256": "430f1095f79864ada1d0a261d08445e04557c0bc22eea0ae91256a564601bfdb",
+  "compiler_origin": "public-sdk",
+  "sdk_compiler_sha256": "430f1095f79864ada1d0a261d08445e04557c0bc22eea0ae91256a564601bfdb",
+  "macos_deployment_target": null,
+  "source_fallback_disabled": true,
+  "openssl_pin_sha256": "ec27a6fcd269a5aea2d04194af37d9069d2c103bad9f088b3cb44ade3e6e58eb",
+  "net_core_source_sha256": {
+    ".github/actionlint.yaml": "0a9ab45c55b3f5b72a698f2edc46c60d2b4c37b440a8915a961e158e26201909",
+    "interface/async_resolver.ni": "99b483f174e064a5f171a0c08e8d0ade000f070ada2ab44246148e5645c51997",
+    "interface/async_transport.ni": "0d72566f4b73329d6342d6c0e2a62a70dcb9580b212b0da3c82512393761f870",
+    "interface/foundation.ni": "7f36b46f0584007a739bad246f20f52b3f88f1c3067443d2e6fbd4d801327878",
+    "interface/transport.ni": "e5402ff32afcf7db89cf56d979232ded1ab11092d037523f54e38c170c0deb5d",
+    "net_core.ny": "9d47f5150692a70d1e553b46c8db4404c35ef4260e84f1fa4c243a77b715237b",
+    "package.yaml": "3760538749b5315f8577c36d698336fd803e0fa49f6cd156a740a3f301803117",
+    "private/address.ny": "8b8aa9e2d05905823e54205e05c22c623bbeff53cd867509717172204300bb1b",
+    "private/async_connection.ny": "83a06d5a527cb979e84ba8088905b5e46f78c2e2672d8312ec8fef6239c7a861",
+    "private/async_resolver.ny": "26b5450797fe6bd1cd82ea3c1fe6c4f0c22daa661079b673e48fe0a9c55926ef",
+    "private/async_transfer.ny": "e65d71cacd79244e89c77f29a253086c987f553141eb9f6a3a4c3a9ef4276296",
+    "private/buffer.ny": "6fc4dc9952adb6deba5723ee6029c591e2b5424e2a3a0db920fe57884bcb3587",
+    "private/cancellation.ny": "f3fce6b30ee480fc89ca3a4a9634a3345afca1167e6f53ad42d62daaaa98bb64",
+    "private/deadline.ny": "d8387847f7d4221c3cab96f7044343dfc1910ddae9bc585e9420950e49bfc5cf",
+    "private/endpoint.ny": "4281377cc3b6b4a9228a56e8165614929e7742508c26c70ae703357bb743d7fa",
+    "private/error.ny": "2f516c2fd5729fe46f80db9c17911cd89be4cf38ff376500e09fd5062e249040",
+    "private/event_loop.ny": "3b6f9f5bb8a0cf1715e579713ae3cc64c0e0df9770b565d4ab22b992ae670212",
+    "private/foundation.ny": "c1c3f5e4327087a314ab046f5dbf0b4de1907a3bc64e348951fecb1a5005e2ab",
+    "private/native/net_core_os.c": "96b39b4e321ee4b69c542cff1161200ef671ead0695f42e77dc710a4ed237f38",
+    "private/native/net_core_os.h": "930b6b192f2c35e79f86a008d4548a0a960009c0abc1773d4a28afc7b3c7702b",
+    "private/native_bridge.ny": "dd045545d15ca00dd11eea743436aea36123a27a11f400e5d3b4cefd7d3db100",
+    "private/owned_buffer.ny": "4442941afa967d0c0bd00dfcc5d1d066964457e2c858f81b229854774a1f265c",
+    "private/resolver.ny": "9aa51008f958a3b5fa1feb8ffa94a91600f04771f211e8c1dae054442eb01a02",
+    "private/socket_owner.ny": "2fe5834e61fda5c72ee15bb4285a38b1e2b0061366d160ca144d7729965ce78f",
+    "private/tcp.ny": "aad1f99d6750c7e3058a86e67d3c253c592b4ec486626b11a874d8ef4287a756",
+    "private/transport.ny": "b43b8f1f603a4737546177b879e207a450fd2a28a77255f3962bc6649ee1c4c5",
+    "private/udp.ny": "8ebcbb815ead051222c10c89516306e0810b7b3d3cb180f8826b95a463cd0620",
+    "scripts/accept.py": "9ed34973794c204cfbcf6454ad3d5a0546263cd0c2af34798049c0f3e82f16f9",
+    "scripts/accept_macos.py": "d23665b1769b7270264c9b65d246cfad2914287ee895928dfa6206e0d68e4289",
+    "scripts/build_mobile.py": "bc6d56c94945bfa550fe198f67ae28405f6aa55c9834df7897d775ebf908441a",
+    "scripts/build_native.py": "aab135e54aa10be5c59523c1c38d892f6bdb3d0c3e9fb8d1e1de5b85daa0553b",
+    "scripts/ci.py": "323e8e4af900eb83cb8eee41f541d88f174706a46de4d091e5ca57cb28c05a87",
+    "scripts/ci_release.py": "8cd12736eb55acd5b9537ff35d58f8debdb4b394e1f626e88df6823d3dc43004",
+    "tests/n1_foundation_selftest.ny": "8547abe03fcf04abe7fb9769aea8a8708cd5f2fb7e65f6c48d0eed50ed41cd1e",
+    "tests/n3_assert_selftest.ny": "b4b8d2725a74c76d8487dc66f97e17f6e639f43f993f07f42a8b707b391e0274",
+    "tests/n3_resolver_selftest.ny": "77180b1bf98df9dc027e58393948b6a11f011eab25bf2f47844b0401a9ad6877",
+    "tests/n3_selftest.ny": "dd6a7da3a7b8811d78d8a468c91cc9df39c8c61c8f2916fa958547e4267aa4a8",
+    "tests/n3_transport_selftest.ny": "ef532977b3b0e7f0f3d8c759fc52fda27ac4b3111a8f658d34796778a5fa5a8a",
+    "tests/native/ci_smoke.c": "36fab234beccaf54e49ab2785632096ed512c74f3d4b0907a23bbf1f8450b02f",
+    "tests/native/n3_fixture.c": "5af31a467766a289a59ac4f10fc3fb1a56ad1f81998f3c43e80cb00ee6f40c68"
+  },
+  "source_sha256": {
+    "interface/channel.ni": "43413e44aec21e4d7e80920518b362c29a9df22053ebe0773bdc5646ce2b4560",
+    "interface/stream.ni": "e664a4b2ba1777fe766420ecaf360e21aac3d9cc22801139f49df2bb293026c9",
+    "interface/tls.ni": "ea2ea191a9e092891e49ea490362ae5bcd8c6143454a252c6891da864b5f3165",
+    "package.yaml": "3269ec0020ef502d7798c2a6293e11380708f4bc6fee2dd004dae304a6b6a3d6",
+    "private/channel.ny": "5edc7e0f8beb8114a3a5f4f134791bc442439e6215651d6ccc086675b2fb3bb7",
+    "private/native/tls_engine.c": "75512f90d95ad7f25e71c12ee2869af7982e50ee1936c06ad12b50210c1620ea",
+    "private/native/tls_engine.h": "34a150b3ebdeeccbb266ec94447d4c898e77cc0687f5504be8218a621339f62d",
+    "private/stream.ny": "c0fff094e39cfa4aeef8b74941c42311e8e3706847dc22a9db5812893e0c1a72",
+    "private/stream_poll.ny": "59b1a22bf621caad9330949501031f8df2301a44e58db8b626fa136f5dfd0fb0",
+    "private/tls.ny": "5cfed046556c9939bec663f6fcaa63037051273df86a0335928d4ad413e6b9ad",
+    "scripts/accept.py": "66ea025c37792745506dac7b505eba2e6cbd50be026cd43704076a31297e8180",
+    "scripts/accept_native.py": "0ff4bdb796a9cdeab615b943cf8ba3717f4b1062aa20bc3fb4a3aa593f68b863",
+    "scripts/build_native.py": "004241016d30243fe11637a52149fb7d4ed636c33d6d4abe8769fc49a846a2b8",
+    "scripts/build_openssl.py": "86f9bb8dc0a0544287db141cf3da41d2c59a9462dfa3efcd7868b9a811d38cdc",
+    "scripts/certificate_fixtures.py": "e846aaa5d0485a4f9f5377ee0f98cb9cc1830cd2f463d990e5788f49090382fb",
+    "scripts/ci.py": "ad9ea6277cdc39ba82ea0214ce4129babcfdb022618fb14c146b35cb20278634",
+    "scripts/native_support.py": "3182be782e6c556c11e9234f24cbfe0da696cc47db35788470b5aa132f9cbcf8",
+    "scripts/release_source.py": "e48b70b10b8999c26cb972914979fbae3ff8a7ce7b3e136d8d61873f77b50d03",
+    "scripts/runtime_resources.py": "3539df359f12945321c525bb2df4b6867d7780f127b37cb72051bed0c5fe7f6b",
+    "tests/channel_selftest.ny": "520d8bb4179b8eb352bfba1d7b0e56f344993300784e556655e78daada3963d7",
+    "tests/engine_selftest.ny": "cece532910586b01855cbba8b33504add5f651c0b5f4c42552539180b7a0234c",
+    "tests/native/config_fixture.c": "a2221a78b472ac2db06e78751fc812cc4ba02c0511cf7caa18a34c7a80ecbc34",
+    "tests/native/engine_peer.h": "bcf71c9d9edef438bb1e272149e58ae8533a0c0693bb5f65ea5d1dec0488c968",
+    "tests/native/engine_test.c": "82afb3329116e7d2e9b4d8f4669b2d1f354b03b4d1312a8d436d4c407260035b",
+    "tests/native/read_probe_cases.h": "b861605892e77a7cddb04d5c213d982134bbc50aa553ff46a2fa38c6f4c61022",
+    "tests/native/resource_hooks.h": "b0129b5e525fbfa478c214d3bf887936f8e07e4370ca74b668c2725f87f56c51",
+    "tests/native/resource_test.c": "ae93351926c55fd31c182082c03bba3a15d9619fc62b3a0fabb1c93a74eca685",
+    "tests/native/runtime_resource_test.c": "6b061ff214e607b10c7e512fe4b4a752a588577a8d7c1eb739fc87fa346555a8",
+    "tests/native/stream_fixture.c": "2f702fb2c03ef5019dcc6fa733ba6d5111669638a851bde53564182a1757f603",
+    "tests/stream_control_selftest.ny": "f88d48b4bb0a813aab0c860f31935c20fdec9b9092d5756845cbe897446c1b6a",
+    "tests/stream_selftest.ny": "34e0da4685e79a61d17489bf8b5f93da5a4039ef76e48d2a8ee70de69b63603d",
+    "tests/tools/test_release_source.py": "91b8295d4589b0a8ddb6ff4666bdffcaac595e70e956f22434d87e2796cf5822",
+    "tls.ny": "2805c25ca9d0d6dc3356c2c0eaa3642ef5a8b2c77db54b839acfda32bc3b3dab"
+  },
+  "native_production_fixture_symbols": [],
+  "staged_manifest_sha256": {
+    "tls": "c8c3bcb5f4161966d11d09dfe5a514404776a5b022ab8d7920c1935930070c99",
+    "net_core": "f83ad682e4052a9ce4e1970f599986c1e49e8d463d4ffdf2738cc8153afadf1c"
+  },
+  "case_names": [
+    "test_tls_default_and_validation",
+    "test_tls_move_and_idempotent_close",
+    "test_tls_handshake_output_and_bounded_input",
+    "test_tls_controls_cancel_before_timeout",
+    "test_tls_deadline_retires_pending_output",
+    "test_tls_drop_cycles",
+    "test_tls_probe_state_and_original_controls",
+    "test_tls_channel_validation_before_adoption",
+    "test_tls_channel_short_writes_and_owned_reads",
+    "test_tls_channel_requested_key_update_before_upload",
+    "test_tls_channel_abort_does_not_flush_accepted_plaintext",
+    "test_tls_channel_cancel_after_acceptance_preserves_transfer",
+    "test_tls_channel_native_failure_and_sticky_cause",
+    "test_tls_channel_truncation_is_not_authenticated_eof",
+    "test_tls_stream_patterned_short_writes_and_shutdown",
+    "test_tls_stream_admission_budget_and_move",
+    "test_tls_stream_handshake_absolute_deadline",
+    "test_tls_stream_wakeable_cancel",
+    "test_tls_stream_transport_failure_preserves_progress",
+    "test_tls_stream_close_callback_observes_terminal_state",
+    "test_tls_stream_poll_callback_can_enqueue_and_close",
+    "test_tls_stream_truncation_after_plaintext_prefix",
+    "test_tls_stream_verification_failure_is_terminal",
+    "test_tls_stream_drop_and_descriptor_recovery",
+    "test_tls_stream_cancel_preserves_plaintext_prefix",
+    "test_tls_stream_read_deadline",
+    "test_tls_stream_shutdown_deadline",
+    "test_tls_stream_admission_controls_and_empty_io",
+    "test_tls_stream_future_drop_does_not_cancel",
+    "test_tls_stream_key_update_preserves_bidirectional_traffic",
+    "test_tls_stream_tampered_record_retires_without_plaintext",
+    "test_tls_stream_cancel_during_final_flush",
+    "test_tls_stream_deadline_during_final_flush",
+    "test_tls_stream_cancel_precedes_deadline_during_final_flush",
+    "test_tls_stream_cancel_precedes_native_flush_error",
+    "test_tls_stream_cancel_after_native_read_before_plaintext",
+    "test_tls_stream_shutdown_cancel_after_local_alert",
+    "test_tls_stream_close_pending_write_after_cancel",
+    "test_tls_stream_shutdown_callback_and_late_cancel"
+  ],
+  "tests": {
+    "package": "tls",
+    "status": "ok",
+    "passed": 39,
+    "failed": 0,
+    "ignored": 0,
+    "ran": 39,
+    "skipped": 0,
+    "exit_code": 0
+  },
+  "isolated_replays": 39,
+  "production_fixture_imports": [],
+  "native_cases": [
+    "verified TLS 1.2 DNS identity and SNI/ALPN",
+    "verified TLS 1.3 DNS identity and SNI/ALPN",
+    "IP SAN verification without SNI and optional ALPN",
+    "hostname mismatch is terminal",
+    "IP SAN mismatch is terminal",
+    "untrusted certificate is terminal",
+    "expired certificate is rejected",
+    "CN-only certificate cannot replace a DNS SAN",
+    "ALPN mismatch fails the handshake",
+    "TLS 1.1 is refused",
+    "bounded output, stable write retries and patterned 16 KiB transfer",
+    "fragmented TLS application read",
+    "bidirectional authenticated shutdown",
+    "TLS 1.2 tampered record yields no plaintext and terminal Protocol error",
+    "TLS 1.3 tampered record yields no plaintext and terminal Protocol error",
+    "TLS 1.2 record replay never duplicates authenticated plaintext",
+    "TLS 1.3 record replay never duplicates authenticated plaintext",
+    "four TLS 1.3 peer key updates preserve bidirectional traffic without unsolicited replies",
+    "four requested TLS 1.3 key updates rotate both directions with non-requesting replies",
+    "pending read rejects size changes and safely replaces caller storage",
+    "TLS 1.2 idle read probe permits a write without flushing queued ciphertext",
+    "TLS 1.3 idle read probe permits a write without flushing queued ciphertext",
+    "TLS 1.2 partial record probe interleaves writes and authenticates early plaintext before flushing upload",
+    "TLS 1.3 partial record probe interleaves writes and authenticates early plaintext before flushing upload",
+    "probe validation preserves ordinary pending read/write reservations",
+    "TLS 1.2 probe reports truncation without plaintext or authenticated EOF",
+    "TLS 1.3 probe reports truncation without plaintext or authenticated EOF",
+    "TLS 1.2 probe never exposes tampered plaintext",
+    "TLS 1.3 probe never exposes tampered plaintext",
+    "TLS 1.2 probe authenticates close_notify before transport FIN",
+    "TLS 1.3 probe authenticates close_notify before transport FIN",
+    "read probes preserve four non-requesting TLS 1.3 key updates and bidirectional traffic",
+    "read probes preserve four requested TLS 1.3 key updates with exact replies",
+    "complete intermediate chain is accepted with only its root trusted",
+    "missing intermediate fails closed without issuer retrieval",
+    "an intermediate with the wrong signing key is rejected",
+    "CA:FALSE intermediate cannot authorize a leaf",
+    "intermediate pathLenConstraint is enforced",
+    "clientAuth-only leaf cannot authenticate a TLS server",
+    "not-yet-valid leaf is rejected",
+    "eight intermediate certificates meet the configured verification depth",
+    "nine intermediate certificates exceed the configured verification depth",
+    "valid certificate below the 256 KiB message limit is accepted",
+    "certificate above the 256 KiB message limit fails terminally",
+    "transport truncation is unexpected EOF",
+    "close_notify remains authenticated EOF after transport FIN",
+    "missing explicit trust fails closed",
+    "embedded NUL peer identity rejected",
+    "bounded input, invalid ranges and pre-handshake state",
+    "64 construction/drop cycles",
+    "TLS context allocation failure rolls back",
+    "trust loading failure rolls back",
+    "bridge state allocation failure rolls back",
+    "TLS session allocation failure rolls back",
+    "BIO pair creation failure rolls back",
+    "unadopted BIO endpoints both roll back",
+    "DNS verification allocation failure is ResourceExhausted",
+    "IPv4 verification allocation failure cannot fall back to DNS/SNI",
+    "IPv6 verification allocation failure cannot fall back to DNS/SNI",
+    "SNI allocation failure is ResourceExhausted",
+    "ALPN allocation failure rolls back",
+    "private provider context allocation failure rolls back",
+    "TLS 1.2 initial ClientHello provider allocation sweep",
+    "TLS 1.2 authenticated read provider allocation sweep",
+    "TLS 1.2 first application write provider allocation sweep",
+    "TLS 1.2 first close_notify provider allocation sweep",
+    "TLS 1.2 remaining authenticated handshake provider allocation sweep",
+    "TLS 1.3 initial ClientHello provider allocation sweep",
+    "TLS 1.3 authenticated read provider allocation sweep",
+    "TLS 1.3 first application write provider allocation sweep",
+    "TLS 1.3 first close_notify provider allocation sweep",
+    "TLS 1.3 requested KeyUpdate read provider allocation sweep",
+    "TLS 1.3 remaining authenticated handshake provider allocation sweep"
+  ],
+  "native_artifacts": {
+    "format": "nyra-tls-native-v1",
+    "openssl": {
+      "version": "3.5.9",
+      "series": "3.5 LTS",
+      "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.9/openssl-3.5.9.tar.gz",
+      "sha256": "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a",
+      "license": "Apache-2.0",
+      "support_until": "2030-04-08",
+      "source": "https://openssl-library.org/source/"
+    },
+    "target": "x86_64-pc-windows-msvc",
+    "compile": [
+      "C:\\Program Files\\LLVM\\bin\\clang.EXE",
+      "-std=c11",
+      "-O2",
+      "-mno-incremental-linker-compatible",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-IE:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\include",
+      "-c",
+      "E:\\workspace\\https-stream-v2-20261028\\third_party\\tls\\private\\native\\tls_engine.c",
+      "-o",
+      "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance\\native\\tls_engine.o"
+    ],
+    "archive_command": [
+      "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\llvm\\bin\\llvm-ar.exe",
+      "rcs",
+      "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance\\native\\libtls_native.a",
+      "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance\\native\\tls_engine.o"
+    ],
+    "system_libraries": [
+      "-lws2_32",
+      "-lgdi32",
+      "-ladvapi32",
+      "-lcrypt32",
+      "-luser32"
+    ],
+    "link_inputs": [
+      "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance\\native\\libtls_native.a",
+      "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libssl.lib",
+      "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libcrypto.lib"
+    ],
+    "inputs_sha256": {
+      "E:\\workspace\\https-stream-v2-20261028\\third_party\\tls\\private\\native\\tls_engine.c": "75512f90d95ad7f25e71c12ee2869af7982e50ee1936c06ad12b50210c1620ea",
+      "E:\\workspace\\https-stream-v2-20261028\\third_party\\tls\\private\\native\\tls_engine.h": "34a150b3ebdeeccbb266ec94447d4c898e77cc0687f5504be8218a621339f62d",
+      "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libssl.lib": "271e1299c1b227104ca14e71e5e92e4384bbbbe1777b4c78d9dd7f61a3899790",
+      "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libcrypto.lib": "e247ca8ce93ad287b9c5a7a35d5fcf5b7ca28aa8ab2252c0a83ebb711dc9ae87"
+    }
+  },
+  "date": "2026-10-28",
+  "source_archive_sha256": "37ef21e0c8fe94a212d38a888879d86bc9c7e2b1cf9b5f94b4fa1f0ad0b30552",
+  "execution_environment": {
+    "host": "windows-x86_64",
+    "system": "Windows",
+    "machine": "AMD64",
+    "kernel_release": "11",
+    "python": "3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]",
+    "compiler_sha256": "430f1095f79864ada1d0a261d08445e04557c0bc22eea0ae91256a564601bfdb",
+    "sdk_manifest_sha256": "507fc2f90dd88bb9fd1d55d1569698778abda8900f2cb28b64221a70691e8833",
+    "source_archive_sha256": "37ef21e0c8fe94a212d38a888879d86bc9c7e2b1cf9b5f94b4fa1f0ad0b30552",
+    "runtime_inventory": {
+      "status": "passed",
+      "host": "windows-x86_64",
+      "scope": "All kernel/stdlib/ntest files for the tested native host, plus the exact compiler; other target/toolkit inventory is outside this check.",
+      "checked_runtime_files": 346,
+      "sdk_manifest_sha256": "507fc2f90dd88bb9fd1d55d1569698778abda8900f2cb28b64221a70691e8833",
+      "compiler_sha256": "430f1095f79864ada1d0a261d08445e04557c0bc22eea0ae91256a564601bfdb"
+    }
+  },
+  "totals": {
+    "http_core_tests": 88,
+    "http_isolated_replays": 88,
+    "prior_network_control_scenarios": 165,
+    "new_https_streaming_scenarios": 16,
+    "total_network_control_scenarios": 181,
+    "tls_tests": 39,
+    "tls_isolated_replays": 39,
+    "tls_native_cases": 73,
+    "verified_runtime_files": 346
+  },
+  "native_sanitizers": "none (Windows)",
+  "publication": "Local unreleased source candidate; no tag or release.",
+  "post_acceptance_documentation": {
+    "http/interface/client.ni": {
+      "tested_sha256": "a91bb455bfdeac03cbf62878afee4593a2551c0f1460ed2bd3c49ff4893d6bf7",
+      "current_sha256": "ac63601e147b85e82deb11593fbf96be5c393008415c7b1fa0f06c172047815c",
+      "change": "Correct the comment to identify TCP and HTTPS streamed clients as NeedBody emitters; declarations and executable code unchanged."
+    }
+  },
+  "phase": "T2b-channel",
+  "raw_receipt_sha256": "018d0a696050f6225a76e87c2607a1a07fac845cefcf54354c26f379f24958da",
+  "commands": [
+    {
+      "name": "native",
+      "command": [
+        "E:\\workspace\\nyra-ci\\python\\python.exe",
+        "E:\\workspace\\https-stream-v2-20261028\\third_party\\tls\\scripts\\accept_native.py",
+        "--openssl-root",
+        "E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9",
+        "--out-dir",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance",
+        "--cc",
+        "C:\\Program Files\\LLVM\\bin\\clang.EXE"
+      ]
+    },
+    {
+      "name": "tls-native-production-symbols",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\llvm\\bin\\llvm-nm.exe",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance\\native\\libtls_native.a"
+      ]
+    },
+    {
+      "name": "net-native",
+      "command": [
+        "E:\\workspace\\nyra-ci\\python\\python.exe",
+        "E:\\workspace\\https-stream-v2-20261028\\third_party\\net_core\\scripts\\build_native.py",
+        "--out-dir",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\net-native",
+        "--cflag=-Dnet_core_os_write=nyra_tls_test_real_write",
+        "--cflag=-Dnet_core_os_read=nyra_tls_test_real_read"
+      ]
+    },
+    {
+      "name": "fixture",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\llvm\\bin\\clang.exe",
+        "-std=c11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-DNYRA_TLS_TEST_CA_FILE=\"E:\\\\workspace\\\\https-stream-v2-20261028\\\\tls-accepted\\\\native-acceptance\\\\ca.pem\"",
+        "-c",
+        "E:\\workspace\\https-stream-v2-20261028\\third_party\\tls\\tests\\native\\config_fixture.c",
+        "-o",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\config_fixture.o"
+      ]
+    },
+    {
+      "name": "stream-fixture",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\llvm\\bin\\clang.exe",
+        "-std=c11",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-IE:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\include",
+        "-IE:\\workspace\\https-stream-v2-20261028\\third_party\\net_core\\private\\native",
+        "-DNYRA_TLS_TEST_CERT_FILE=\"E:\\\\workspace\\\\https-stream-v2-20261028\\\\tls-accepted\\\\native-acceptance\\\\peer.pem\"",
+        "-DNYRA_TLS_TEST_KEY_FILE=\"E:\\\\workspace\\\\https-stream-v2-20261028\\\\tls-accepted\\\\native-acceptance\\\\peer.key\"",
+        "-c",
+        "E:\\workspace\\https-stream-v2-20261028\\third_party\\tls\\tests\\native\\stream_fixture.c",
+        "-o",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\stream_fixture.o"
+      ]
+    },
+    {
+      "name": "list",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\bin\\nyrac.exe",
+        "test",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\project\\tls",
+        "--tag",
+        "tls_engine",
+        "--list"
+      ]
+    },
+    {
+      "name": "tests",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\bin\\nyrac.exe",
+        "test",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\project\\tls",
+        "--tag",
+        "tls_engine",
+        "-O2",
+        "-j",
+        "4",
+        "--out-dir",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\objects",
+        "-o",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "--platform-archive=E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\targets\\windows-x86_64\\stdlib\\lib\\libnyra_platform.a",
+        "--link-arg=E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\native-acceptance\\native\\libtls_native.a",
+        "--link-arg=E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libssl.lib",
+        "--link-arg=E:\\workspace\\tls-dev-20261027\\openssl\\openssl-3.5.9\\libcrypto.lib",
+        "--link-arg=E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\net-native\\libnet_core_native.a",
+        "--link-arg=E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\config_fixture.o",
+        "--link-arg=E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\stream_fixture.o",
+        "--link-arg=-lws2_32",
+        "--link-arg=-lgdi32",
+        "--link-arg=-ladvapi32",
+        "--link-arg=-lcrypt32",
+        "--link-arg=-luser32",
+        "--link-arg=-liphlpapi",
+        "--report",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tests.json"
+      ]
+    },
+    {
+      "name": "case-0",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "0"
+      ]
+    },
+    {
+      "name": "case-1",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "1"
+      ]
+    },
+    {
+      "name": "case-2",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "2"
+      ]
+    },
+    {
+      "name": "case-3",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "3"
+      ]
+    },
+    {
+      "name": "case-4",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "4"
+      ]
+    },
+    {
+      "name": "case-5",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "5"
+      ]
+    },
+    {
+      "name": "case-6",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "6"
+      ]
+    },
+    {
+      "name": "case-7",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "7"
+      ]
+    },
+    {
+      "name": "case-8",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "8"
+      ]
+    },
+    {
+      "name": "case-9",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "9"
+      ]
+    },
+    {
+      "name": "case-10",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "10"
+      ]
+    },
+    {
+      "name": "case-11",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "11"
+      ]
+    },
+    {
+      "name": "case-12",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "12"
+      ]
+    },
+    {
+      "name": "case-13",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "13"
+      ]
+    },
+    {
+      "name": "case-14",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "14"
+      ]
+    },
+    {
+      "name": "case-15",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "15"
+      ]
+    },
+    {
+      "name": "case-16",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "16"
+      ]
+    },
+    {
+      "name": "case-17",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "17"
+      ]
+    },
+    {
+      "name": "case-18",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "18"
+      ]
+    },
+    {
+      "name": "case-19",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "19"
+      ]
+    },
+    {
+      "name": "case-20",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "20"
+      ]
+    },
+    {
+      "name": "case-21",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "21"
+      ]
+    },
+    {
+      "name": "case-22",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "22"
+      ]
+    },
+    {
+      "name": "case-23",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "23"
+      ]
+    },
+    {
+      "name": "case-24",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "24"
+      ]
+    },
+    {
+      "name": "case-25",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "25"
+      ]
+    },
+    {
+      "name": "case-26",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "26"
+      ]
+    },
+    {
+      "name": "case-27",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "27"
+      ]
+    },
+    {
+      "name": "case-28",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "28"
+      ]
+    },
+    {
+      "name": "case-29",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "29"
+      ]
+    },
+    {
+      "name": "case-30",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "30"
+      ]
+    },
+    {
+      "name": "case-31",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "31"
+      ]
+    },
+    {
+      "name": "case-32",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "32"
+      ]
+    },
+    {
+      "name": "case-33",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "33"
+      ]
+    },
+    {
+      "name": "case-34",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "34"
+      ]
+    },
+    {
+      "name": "case-35",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "35"
+      ]
+    },
+    {
+      "name": "case-36",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "36"
+      ]
+    },
+    {
+      "name": "case-37",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "37"
+      ]
+    },
+    {
+      "name": "case-38",
+      "command": [
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\tls-tests.exe",
+        "38"
+      ]
+    },
+    {
+      "name": "net-production-native",
+      "command": [
+        "E:\\workspace\\nyra-ci\\python\\python.exe",
+        "E:\\workspace\\https-stream-v2-20261028\\third_party\\net_core\\scripts\\build_native.py",
+        "--out-dir",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\net-production-native"
+      ]
+    },
+    {
+      "name": "net-production-imports",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\llvm\\bin\\llvm-nm.exe",
+        "-u",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\net-production-native\\libnet_core_native.a"
+      ]
+    },
+    {
+      "name": "production",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\bin\\nyrac.exe",
+        "precompile",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\project\\tls\\tls.ny",
+        "-O2",
+        "-j",
+        "4",
+        "--out-dir",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\production-objects",
+        "-o",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\production"
+      ]
+    },
+    {
+      "name": "production-imports",
+      "command": [
+        "E:\\workspace\\http-follow-20261028\\sdk-input\\nyra-sdk-1.0.2-windows-x86_64\\hosts\\windows-x86_64\\llvm\\bin\\llvm-nm.exe",
+        "-u",
+        "E:\\workspace\\https-stream-v2-20261028\\tls-accepted\\production\\lib\\libpackage.a"
+      ]
+    }
+  ],
+  "http_streaming_receipt": "../../http/docs/https-upload-acceptance-2026-10-28-windows-x86_64.json",
+  "remaining": [
+    "Intel macOS qualification if SSH authentication is unavailable",
+    "Further provider retry/fault matrices beyond the current verified TLS 1.2/1.3 client profile",
+    "Mobile acceptance and a separately authorized release"
+  ]
+}

@@ -95,3 +95,21 @@ func test_tls_drop_cycles() {
     i = i + 1;
   }
 }
+
+@test(tag = "tls_engine")
+func test_tls_probe_state_and_original_controls() {
+  var storage: <uint8>[16384] = <uint8>[16384]{};
+  let output: NetMutableBytes = (NetMutableBytes.FromRaw(&mut storage[0], 16384 as intptr).get_if<NetMutableBytes>()) as NetMutableBytes;
+  var empty: TlsSession = TlsSession{};
+  let closed: Result<TlsProgress, TlsError> = empty.ProbeReadStep(output, NetOperationOptions{});
+  tls_test_assert(closed.IsErr() && ((closed.get_if<TlsError>()) as TlsError).kind == TlsErrorKind.Closed, "probe default owner is closed");
+  var session: TlsSession = tls_test_session();
+  let premature: Result<TlsProgress, TlsError> = session.ProbeReadStep(output, NetOperationOptions{});
+  tls_test_assert(premature.IsErr() && ((premature.get_if<TlsError>()) as TlsError).kind == TlsErrorKind.InvalidState && session.IsOpen(), "probe requires handshake without poisoning admission");
+  let token: NetCancellation = NetCancellation.New(); token.Cancel();
+  let cancelled: Result<TlsProgress, TlsError> = session.ProbeReadStep(output, NetOperationOptions{cancellation: token, deadline: NetDeadline.At(0u64)});
+  tls_test_assert(cancelled.IsErr() && ((cancelled.get_if<TlsError>()) as TlsError).kind == TlsErrorKind.Cancelled && !session.IsOpen(), "probe keeps original cancellation precedence and retires session");
+  var expired: TlsSession = tls_test_session();
+  let timeout: Result<TlsProgress, TlsError> = expired.ProbeReadStep(output, NetOperationOptions{deadline: NetDeadline.At(0u64)});
+  tls_test_assert(timeout.IsErr() && ((timeout.get_if<TlsError>()) as TlsError).kind == TlsErrorKind.TimedOut && !expired.IsOpen(), "probe deadline uses the existing monotonic origin and retires session");
+}

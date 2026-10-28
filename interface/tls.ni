@@ -91,3 +91,16 @@ pub method(TlsSession) SelectedAlpn() -> Result<string, TlsError>;
 pub method(TlsSession) IsOpen() -> bool;
 /** @brief Release the engine once without I/O; use ShutdownStep first for orderly TLS closure. */
 pub method(TlsSession) Close() -> void;
+
+/**
+ * @brief Probe available authenticated plaintext without reserving a read on NeedInput.
+ * @param buffer Exactly 16384 writable bytes, borrowed only during this call; unchanged without data.
+ * @returns Complete with initialized plaintext count, NeedInput, NeedOutput, PeerClosed, or error.
+ * @note Requires verified handshake and no ordinary pending read/write. NeedInput transfers no
+ *       bytes and permits a later WriteStep; it does not assert absence of queued ciphertext.
+ *       NeedOutput reserves this probe: drain ciphertext, then retry ProbeReadStep before any
+ *       other protocol operation. Retry storage belongs to the engine, never to the caller.
+ *       Feed/drain preserve their bounds; callers retain unsent ciphertext and original controls.
+ *       No I/O, waiting, asynchronous operation, socket access or TLS stream contract is added.
+ */
+pub method(TlsSession) ProbeReadStep(buffer: ref NetMutableBytes, options: ref NetOperationOptions) -> Result<TlsProgress, TlsError>;

@@ -82,6 +82,24 @@ adds eight stream cases and verifies the post-flush control check. Each host
 also passes 80 targeted replays of these eight cases.
 Remaining hosts, complete fault matrices and release acceptance remain T3.
 
+## T2b — Optional response-first channel for HTTP streaming
+
+- [x] Additive fixed-capacity authenticated read probes; idle NeedInput permits a
+      later write, while ordinary pending reads/writes retain their reservations.
+- [x] Optional move-owned `TlsChannel`, verified handshake and bounded sequential
+      steps; preserve provider retry barriers, output suffixes and owned read data.
+- [x] Read before flushing accepted application ciphertext, advisory dual readiness
+      waits, original controls, sticky failures and abort without hidden flushing.
+- [x] Local development probes/controls and channel behavior pass alongside all
+      prior engine/stream cases; published TlsStream still permits one pending Future.
+- [x] [Matching public-SDK three-host qualification](docs/channel-acceptance-2026-10-28.json):
+      macOS arm64, Linux x86_64 and Windows x86_64 pass 39 cases/replays and 73
+      native cases each, plus the complete 88/88 HTTP and 181 network/control
+      regression scope. Bridge/harness sanitizers apply on macOS/Linux, not Windows.
+- [ ] Native Intel macOS qualification awaits restored authorized SSH access;
+      existing published receipts cannot establish this new source candidate.
+      This is local source development, not a new TLS release or mobile acceptance.
+
 ## T3 — Platform trust and delivery
 
 - [x] Linux x86_64 public-SDK acceptance: 31 Nyra cases, 31 isolated replays and

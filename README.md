@@ -155,3 +155,60 @@ For local multi-package development, list package-file pointers in a common
 `workspace.yaml`. Workspace replacements keep Git declarations shareable;
 origin lock updates deliberately disable replacements. A package entry and its
 SDK can move without rewriting publisher paths.
+
+
+## Local development: response-first TLS channel
+
+The working tree adds `TlsSession.ProbeReadStep` and the optional `TlsChannel`
+for streamed HTTP consumers. These additions are not part of the immutable
+published 0.1.0 source receipt. Existing `ReadStep` still reserves a pending read,
+and `TlsStream` still permits one pending Future. No public ABI layout, trust
+policy, provider pin, socket ownership or retry rule of those APIs is replaced.
+
+`ProbeReadStep` requires a borrowed 16384-byte output range. It uses stable
+engine-owned retry storage and only copies authenticated returned bytes into the
+caller range. NeedInput leaves no read reservation, including for an incomplete
+TLS record; queued outbound ciphertext remains untouched. Actual provider
+WANT_WRITE reserves this probe until output is drained and the same probe is
+retried. Ordinary pending reads/writes reject probing. Raw EOF and authentication
+failure remain terminal failures, never a successful empty read.
+
+The probe follows the provider's [nonblocking I/O rules](https://docs.openssl.org/3.5/man3/SSL_get_error/).
+Read and write retry barriers remain distinct from socket readiness. In particular,
+a pending provider write cannot be replaced by a read simply because a socket is
+readable. The optional channel preserves these barriers and exposes advisory
+read/write states rather than pretending every operation is interchangeable.
+
+`TlsChannel.NewClient` validates before adopting TCP, retaining explicit PEM
+trust, peer verification and ALPN. Zero BIO capacity selects 65536; explicit
+capacity must be 32768..1048576. It admits at most one 16 KiB immutable plaintext
+block after prior ciphertext drains, enough for a complete application record in
+this TLS 1.2/1.3 client profile. TLS acceptance and TCP delivery are different:
+`WriteAvailable` reports accepted plaintext before socket flushing. Preserve its
+positive count before handling a terminal error. Provider retries require the
+same immutable bytes; no caller pointer is retained.
+
+`ReadAvailable` performs at most eight nonblocking rounds and can decrypt a peer
+response while accepted application ciphertext awaits socket writability.
+NeedRead permits writing, NeedWrite reserves a read retry, and RetryWrite requires
+retrying the original write. `Flush` preserves every unsent ciphertext suffix.
+`Wait` owns at most two readiness-only registrations and retires both before
+return; all methods stay on the caller thread. The caller carries the same
+absolute deadline/shared cancellation through every method. Admission rejection
+is nonterminal; operational failures retire TCP/TLS and preserve the first cause.
+
+`Shutdown` requires no pending output/provider retry; it then drives the existing
+verified close-notify mechanism. `Close`/drop never flushes pending application
+ciphertext. That distinction lets an HTTP consumer stop an upload after an early
+final response without sending another accepted-but-unsent TLS record solely to
+start graceful shutdown. Returned plaintext owners survive channel retirement.
+
+
+[Channel acceptance](docs/channel-acceptance-2026-10-28.json) records 39 TLS
+cases/replays and 73 native cases on macOS arm64, Linux x86_64 and Windows x86_64
+with matching SDK 1.0.2 compiler/runtime inputs. Seven new channel cases and one
+probe-control case extend the previous 31; thirteen probe/KeyUpdate native cases
+extend the previous 60. Each host also passes the full streamed HTTPS regression.
+Intel macOS is pending authorized SSH recovery, so the overall desktop matrix
+remains partial. These records retain their exact source snapshot and do not
+change the published 0.1.0 acceptance or claim complete provider-state/fault coverage.
