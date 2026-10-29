@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* Private ABI: transport-neutral OpenSSL engine, never exported from tls.ny. */
 #ifndef NYRA_TLS_ENGINE_H
 #define NYRA_TLS_ENGINE_H

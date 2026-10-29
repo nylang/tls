@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Build the private TLS bridge against an explicitly selected pinned OpenSSL tree."""
 from __future__ import annotations
 import argparse

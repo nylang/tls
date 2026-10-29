@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* Constructor fault injection observes bridge-owned resources, not provider heaps. */
 #include "resource_hooks.h"
 #include "tls_engine.h"

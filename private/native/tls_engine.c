@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* OpenSSL owns cryptography and certificate parsing; no sockets or OS trust lookup here. */
 #include "tls_engine.h"
 #include <openssl/ssl.h>

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Generate local chain/size boundaries using the acceptance-owned CA and keys."""
 from pathlib import Path
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 #ifndef NYRA_TLS_ENGINE_PEER_H
 #define NYRA_TLS_ENGINE_PEER_H
 /* Controlled in-process TLS peer; certificates and cryptography stay in OpenSSL. */

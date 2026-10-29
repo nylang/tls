@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* Each invocation owns a fresh provider and fails one real allocation in one step. */
 #include "engine_peer.h"
 

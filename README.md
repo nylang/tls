@@ -226,3 +226,7 @@ Protocol qualification with public SDK 1.0.2 is recorded separately.
 See the [publication receipt](docs/publication-0.2.0.json) for exact
 sources, assets and native desktop qualification. Historical development
 receipts retain their original pending/partial state and are not rewritten.
+
+## Module architecture
+
+See [module responsibilities, ownership and dependency boundaries](ARCHITECTURE.md).

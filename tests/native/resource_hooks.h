@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* Force-included only into a separately compiled acceptance bridge object. */
 #ifndef NYRA_TLS_RESOURCE_HOOKS_H
 #define NYRA_TLS_RESOURCE_HOOKS_H

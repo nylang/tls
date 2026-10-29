@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* Only the Nyra acceptance executable links this fixture-owned immutable path. */
 #include <stdint.h>
 #include <string.h>

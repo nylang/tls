@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* Native loopback peer and adapter interposition, linked into acceptance executables only. */
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

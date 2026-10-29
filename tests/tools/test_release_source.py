@@ -1,3 +1,6 @@
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Source-distribution boundary checks independent of SDK/provider builds."""
 import importlib.util
 from pathlib import Path

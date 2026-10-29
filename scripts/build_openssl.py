@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Build the exact pinned OpenSSL static libraries in an external, empty cache."""
 from __future__ import annotations
 import argparse

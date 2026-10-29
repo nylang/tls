@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Assemble an auditable source distribution with a locked sibling net_core dependency."""
 from __future__ import annotations
 import argparse, hashlib, io, json, os, subprocess, tarfile

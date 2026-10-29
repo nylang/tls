@@ -1,3 +1,6 @@
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Sweep observed operation-window provider allocations in fresh processes."""
 from pathlib import Path
 

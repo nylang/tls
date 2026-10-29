@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Exercise the pinned TLS bridge with local certificates and a fragmented in-process peer."""
 from __future__ import annotations
 import argparse

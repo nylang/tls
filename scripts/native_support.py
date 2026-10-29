@@ -1,3 +1,6 @@
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Host build conventions shared by the standalone TLS acceptance tools."""
 from pathlib import Path
 

@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 tangxiangjiang
+# SPDX-License-Identifier: MIT
+
 """Run standalone public-SDK TLS acceptance and a moved source consumer before release."""
 from __future__ import annotations
 import argparse, hashlib, json, os, platform, re, shutil, subprocess, sys, tarfile, urllib.request, zipfile

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 /* New opt-in reads must not weaken ordinary read/write retry reservations. */
 static void probe_receive(ntls_session *c, SSL *s, link *wire, const char *text) {
   uint8_t out[16384]; int done = 0;

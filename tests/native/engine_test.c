@@ -1,3 +1,6 @@
+// Copyright (c) 2026 tangxiangjiang
+// SPDX-License-Identifier: MIT
+
 #include "engine_peer.h"
 static const char *other_ca;
 static int passed;
