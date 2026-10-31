@@ -4,7 +4,7 @@
 
 """Assemble an auditable source distribution with a locked sibling net_core dependency."""
 from __future__ import annotations
-import argparse, hashlib, io, json, os, subprocess, tarfile
+import argparse, hashlib, io, json, os, re, subprocess, tarfile
 from pathlib import Path
 PACKAGE=Path(__file__).resolve().parents[1]
 
@@ -21,7 +21,7 @@ def tested_sources(source:Path)->dict:
 
 def validate_acceptance(row:dict,host:str,version:str):
     accept=row['acceptance']
-    if row.get('relocated_consumer')!='passed' or row.get('sanitized') is not (not host.startswith('windows-')):
+    if row.get('portable_git_dependencies')!='passed' or row.get('relocated_consumer')!='passed' or row.get('sanitized') is not (not host.startswith('windows-')):
         raise ValueError('TLS relocated consumer or sanitizer acceptance incomplete')
     if accept.get('status')!='passed' or accept['compiler_origin']!='public-sdk' or accept['sdk_version']!=version or accept['compiler_sha256']!=accept['sdk_compiler_sha256'] or accept['tests']['passed']!=39 or accept['tests']['failed'] or accept['isolated_replays']!=39 or len(accept['native_cases'])!=73 or not accept['source_fallback_disabled'] or accept['production_fixture_imports'] or accept.get('native_production_fixture_symbols')!=[]:
         raise ValueError('TLS advertised acceptance incomplete')
@@ -42,10 +42,11 @@ def prepare_tree(source:Path,target:Path,name:str):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--net-core',type=Path,required=True);p.add_argument('--receipts',type=Path,required=True);p.add_argument('--out-dir',type=Path,required=True);a=p.parse_args()
-    out=a.out_dir.resolve();net=a.net_core.resolve();version='0.2.0'
+    out=a.out_dir.resolve();net=a.net_core.resolve();version=re.search(r'^version: (\S+)',(PACKAGE/'package.yaml').read_text(),re.M)[1]
     if out.exists():p.error('new external output directory required')
     if out==PACKAGE or PACKAGE in out.parents:p.error('output must be outside package')
     lock=json.loads((PACKAGE/'release.lock.json').read_text());sdk=lock['sdk'];expected=set(sdk['hosts'])
+    if expected!={'darwin-arm64','darwin-x86_64','linux-x86_64','windows-x86_64'}:raise ValueError('four qualified SDK host pins are required before source packaging')
     if revision(net)!=lock['net_core']['commit']:raise ValueError('net_core differs from release lock')
     receipts={};tls_sources=tested_sources(PACKAGE);net_sources=tested_sources(net)
     for path in a.receipts.rglob('ci-report.json'):
@@ -59,7 +60,7 @@ def main():
         receipts[host]=row
     if set(receipts)!=expected:raise ValueError('missing host acceptance')
     out.mkdir(parents=True);root=out/('tls-'+version+'-source');root.mkdir();prepare_tree(PACKAGE,root/'tls','tls');prepare_tree(net,root/'net_core','net_core')
-    record={'format':'nyra-tls-source-release-v1','version':version,'source_commit':revision(PACKAGE),'net_core_commit':revision(net),'sdk':sdk,'openssl':json.loads((PACKAGE/'openssl.lock.json').read_text()),'scope':'Source-only distribution; build the pinned OpenSSL and native adapters locally. Four desktop hosts accepted against the exact public SDK. Explicit CA trust required; no mobile/server/mTLS/system-trust claim.','manifest_rewrite':'None. Original package.yaml files retain immutable public Git dependencies. Git acquisition requires the corrected Nyra 1.0.4 toolchain; protocol qualification uses SDK 1.0.2 test snapshots.','hosts':{h:{'compiler_sha256':r['acceptance']['compiler_sha256'],'tests':39,'isolated_replays':39,'native_cases':73,'sanitized':r['sanitized'],'relocated_consumer':'passed'} for h,r in receipts.items()}}
+    record={'format':'nyra-tls-source-release-v1','version':version,'source_commit':revision(PACKAGE),'net_core_commit':revision(net),'sdk':sdk,'openssl':json.loads((PACKAGE/'openssl.lock.json').read_text()),'scope':'Source-only distribution; build the pinned OpenSSL and native adapters locally. Four desktop hosts accepted against the exact public SDK. Explicit CA trust required; no mobile/server/mTLS/system-trust claim.','manifest_rewrite':'None. Original package.yaml files retain immutable public Git dependencies. The relocated consumer locks declared Git origins using the exact pinned SDK, then fetches offline with the frozen lock.','hosts':{h:{'compiler_sha256':r['acceptance']['compiler_sha256'],'tests':39,'isolated_replays':39,'native_cases':73,'sanitized':r['sanitized'],'relocated_consumer':'passed'} for h,r in receipts.items()}}
     evidence=root/'evidence';evidence.mkdir()
     for host,row in receipts.items():(evidence/(host+'.json')).write_text(json.dumps(row,indent=2)+'\n')
     (root/'release.json').write_text(json.dumps(record,indent=2)+'\n');(out/'release.json').write_text(json.dumps(record,indent=2)+'\n')

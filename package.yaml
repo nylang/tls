@@ -4,7 +4,7 @@ license: MIT
 dependencies:
   net_core:
     git: https://github.com/nylang/netcore.git
-    rev: 8128b144a321a820358256ff79b2441f06a3d8ee
+    rev: 8b7e6a06bf0cfcc772d952cd5a82f4321981edd2
 directories:
   interface:
     - interface

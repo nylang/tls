@@ -1,31 +1,14 @@
 {
   "schema_version": 1,
   "sdk": {
-    "version": "1.0.2",
-    "hosts": {
-      "darwin-arm64": {
-        "archive_sha256": "f24b3e8cc57ddd4a43728e36e3143da1d5b0b85c5105ae137ac7147d24b577ad",
-        "manifest_sha256": "4b5c0d4287d388e2cd1c3272e15f8707df57ddd6d0f6dbf9972602ed63ce5db8"
-      },
-      "darwin-x86_64": {
-        "archive_sha256": "28e8461046cf7e62bab2e94a39f87c6b90ca552c0f5de633a222ff9fe49826be",
-        "manifest_sha256": "51b8609dba9190f187fabcb1d4a3040a43b68e328050c791b44a37cea2ffc8a0"
-      },
-      "linux-x86_64": {
-        "archive_sha256": "fe5e43b6f62eeecbf9f9e3968351a0eddd63a35616fc1b0e6e5cb05d8e31d379",
-        "manifest_sha256": "b24876c0cf1e2fb0e0ae03511328d63994f4596c187b715bbb435c4ba0ef53c7"
-      },
-      "windows-x86_64": {
-        "archive_sha256": "f028f4c697dde57129d9c8f595ffcaedd377a5784c0d3eba3a7c6bff731fd48a",
-        "manifest_sha256": "507fc2f90dd88bb9fd1d55d1569698778abda8900f2cb28b64221a70691e8833"
-      }
-    }
+    "version": "1.0.5",
+    "hosts": {}
   },
   "net_core": {
     "url": "https://github.com/nylang/netcore.git",
-    "commit": "e86cf3b732b97ef7198e8e461ecd550c65b2c8cb"
+    "commit": "8b7e6a06bf0cfcc772d952cd5a82f4321981edd2"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "acceptance": {
     "nyra_cases": 39,
     "native_cases": 73

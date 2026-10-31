@@ -15,14 +15,14 @@ RELEASE=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(RELEASE)
 
 class SourceDistributionTests(unittest.TestCase):
     def test_receipt_requires_moved_consumer_and_public_sdk_compiler(self):
-        row={'relocated_consumer':'passed','sanitized':True,'acceptance':{
+        row={'portable_git_dependencies':'passed','relocated_consumer':'passed','sanitized':True,'acceptance':{
             'status':'passed','compiler_origin':'public-sdk','sdk_version':'1.0.2',
             'compiler_sha256':'a'*64,'sdk_compiler_sha256':'a'*64,
             'tests':{'passed':39,'failed':0},'isolated_replays':39,'native_cases':[{}]*73,
             'source_fallback_disabled':True,'production_fixture_imports':[],
             'native_production_fixture_symbols':[]}}
         RELEASE.validate_acceptance(row,'linux-x86_64','1.0.2')
-        for field,value in [('relocated_consumer','failed'),('sanitized',False)]:
+        for field,value in [('portable_git_dependencies','failed'),('relocated_consumer','failed'),('sanitized',False)]:
             changed=copy.deepcopy(row);changed[field]=value
             with self.subTest(field=field),self.assertRaises(ValueError):
                 RELEASE.validate_acceptance(changed,'linux-x86_64','1.0.2')

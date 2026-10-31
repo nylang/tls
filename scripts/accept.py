@@ -15,6 +15,7 @@ import subprocess
 import sys
 from native_support import static_libraries, system_libraries
 
+from sdk_layout import sdk_package
 PACKAGE = Path(__file__).resolve().parents[1]
 
 def digest(path: Path) -> str:
@@ -55,7 +56,7 @@ def main() -> int:
         if not compiler.is_file():
             parser.error('--compiler must name an existing native source candidate')
     toolkit = sdk / 'hosts' / host / 'llvm/bin'
-    stdlib = sdk / 'targets' / host / 'stdlib'
+    stdlib = sdk_package(sdk, host, 'stdlib')
     output.mkdir(parents=True, exist_ok=True)
     environment = {k: v for k, v in os.environ.items() if not k.startswith(('NYRA', 'DYLD_', 'LD_')) and k != 'LLVM_PREFIX'}
     environment.update(CC=str(toolkit / ('clang' + suffix)), AR=str(toolkit / ('llvm-ar' + suffix)),
