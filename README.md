@@ -12,10 +12,10 @@ The package provides a **verified client engine and caller-driven TCP/Future
 TLS stream**. It uses net_core's public connection, byte-range, readiness and
 control APIs; net_core never imports TLS. HTTP/HTTPS remains a separate package.
 
-**Compiler requirement:** Nyra SDK **1.0.2**. The stream requires its native
-ARC owner-return and selected variant-arm ownership fixes. SDK 1.0.0/1.0.1
-compilers are incompatible with this release. The release pipeline locks the
-public SDK archive and manifest hashes for every accepted desktop host.
+**Compiler requirement:** matching Nyra SDK **1.0.5**. Earlier SDKs do not
+contain the runtime capabilities used by this working API. The release pipeline
+requires exact qualified SDK archive and manifest hashes for all four desktop
+hosts; pending pins block qualification and source publication.
 
 - Move-only `TlsSession` owns private native state and releases it through drop.
   Each client has an independent OpenSSL library context and algorithm cache.
@@ -72,7 +72,7 @@ Distribution details and host limitations for the historical release are recorde
 Build tools require Python 3.12+, Perl, Make and a host C compiler. Windows uses
 native Strawberry Perl and an x64 Visual Studio Developer Command Prompt with
 NMake; the initial Windows provider build disables assembly. All generated
-outputs must be outside this package. An explicitly selected public Nyra SDK 1.0.2,
+outputs must be outside this package. An explicitly selected matching Nyra SDK 1.0.5,
 sibling net_core checkout and OpenSSL CLI 3.5+ are needed for full acceptance.
 Use `--build-cli` to build that CLI from the same checksum-pinned provider source;
 acceptance selects it automatically when present. `--openssl-cli` selects an
@@ -125,12 +125,11 @@ Precompiled multitarget package delivery remains outside this source release.
 
 ## Portable Git dependency
 
-Source imports use the installed SDK's implicit runtime packages (SDK 1.0.2 or
-later); package manifests contain no paths into the private compiler checkout.
-For automatic Git preparation use native `nyra` 1.0.3 or later. That manager's
-public SDK publication is separate from this package; SDK 1.0.2 does not ship it.
-SDK 1.0.2 users can use the existing prepared v0.1.0 source release described
-above; cloning current TLS alone does not acquire its transitive Git dependency.
+This working API requires matching Nyra SDK 1.0.5 compiler, runtime and analyzer
+capabilities. Its manifest uses implicit SDK packages and contains no paths into
+the private compiler checkout. Use the SDK's native `nyra` for Git preparation.
+Older source tags retain their documented SDK requirements; they do not qualify
+this development API. SDK/package publication remains a separate operation.
 
 Add this dependency to your application's `package.yaml`:
 
@@ -138,21 +137,14 @@ Add this dependency to your application's `package.yaml`:
 dependencies:
   tls:
     git: https://github.com/nylang/tls.git
-    rev: main
+    rev: d8a70247fefb303738d082b9461a9a23b50ce67b
 ```
 
-Then run `nyra lock ./app` and commit `nyra.lock`; use
-`nyra fetch ./app --frozen` to prepare the pinned graph again. `main` above is
-an initial selector; the lock fixes the exact commit/content. Normal compiler
-and analyzer operations do not fetch dependencies. Historical tags are immutable
-and may retain older workspace-specific manifests.
-
-
-SDK-v2 portable-lock compilation requires the SDK runtime-lock loading fix in
-newer compiler builds. The unchanged originally qualified SDK 1.0.3 bootstrap
-does not contain that follow-up. Source-only use with public SDK 1.0.2 and the
-historical prepared TLS source asset retain their documented limits; this
-manifest migration does not release a corrected compiler.
+Run `nyra lock ./app` and commit `nyra.lock`; use
+`nyra fetch ./app --frozen` to prepare the same graph again. The example pins
+an existing public development commit whose API matches this source. It does
+not select the older stable `main` or claim a newly published package tag.
+Normal compiler and analyzer operations do not fetch dependencies.
 
 For local multi-package development, list package-file pointers in a common
 `workspace.yaml`. Workspace replacements keep Git declarations shareable;
@@ -240,5 +232,5 @@ See [module responsibilities, ownership and dependency boundaries](ARCHITECTURE.
 1.0.5 P7 analyzer candidate (or a later SDK containing those rules); the
 published 1.0.4 analyzer does not implement them. `import: default` inherits
 the selected workspace profile when present, otherwise analyzer SDK defaults.
-No sibling source path is required. Run `nyra-analyzer lint . --json`. Existing
-violations remain migration debt; lint success is not runtime qualification.
+No sibling source path is required. Run `nyra-analyzer lint . --json`. Lint checks
+coding rules; runtime qualification is a separate gate.
