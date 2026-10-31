@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 from pathlib import Path
 import shutil
 import subprocess
@@ -30,13 +31,14 @@ def main() -> int:
         parser.error('--out-dir must be new or empty')
     output.mkdir(parents=True, exist_ok=True)
     pin = json.loads((PACKAGE / 'openssl.lock.json').read_text())
-    target = subprocess.check_output([args.cc, '-dumpmachine'], text=True).strip()
+    arch_flags = ['-arch', platform.machine()] if platform.system() == 'Darwin' else []
+    target = subprocess.check_output([args.cc, *arch_flags, '-dumpmachine'], text=True).strip()
     windows = any(marker in target.lower() for marker in ('windows', 'mingw', 'win32'))
     libraries = static_libraries(ssl, windows)
     if not all(p.is_file() for p in libraries):
         parser.error('missing pinned static libraries; run build_openssl.py first')
     source = PACKAGE / 'private/native/tls_engine.c'
-    command = [args.cc, '-std=c11', '-O2', *object_flags(windows), '-Wall', '-Wextra', '-Werror',
+    command = [args.cc, *arch_flags, '-std=c11', '-O2', *object_flags(windows), '-Wall', '-Wextra', '-Werror',
                '-I' + str(ssl / 'include'), '-c', str(source), '-o', str(output / 'tls_engine.o')]
     subprocess.run(command, check=True)
     if Path(args.ar).name.lower() in ('lib', 'lib.exe', 'llvm-lib', 'llvm-lib.exe'):

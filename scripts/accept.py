@@ -23,6 +23,7 @@ def digest(path: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--resume-native', action='store_true', help='Reuse complete C cases after a production bridge architecture repair')
     parser.add_argument('--sdk', type=Path, required=True)
     parser.add_argument('--compiler', type=Path, help='explicit native source candidate; SDK runtime identity remains separate')
     parser.add_argument('--native-cc', default=shutil.which('clang') or 'clang', help='host C compiler with a compatible sanitizer runtime')
@@ -40,7 +41,7 @@ def main() -> int:
     suffix = '.exe' if windows else ''
     if output == PACKAGE or PACKAGE in output.parents or output == net or net in output.parents:
         parser.error('use an external output directory')
-    if output.exists() and any(output.iterdir()):
+    if output.exists() and any(output.iterdir()) and not args.resume_native:
         parser.error('--out-dir must be new or empty')
     metadata = json.loads((sdk / 'manifest.json').read_text())
     if metadata['host'] != host:
@@ -77,9 +78,21 @@ def main() -> int:
                   if p.is_file() and p.suffix in ('.ny', '.ni', '.c', '.h', '.py', '.yaml') and '.git' not in p.parts},
               'source_sha256': {p.relative_to(PACKAGE).as_posix(): digest(p) for p in sorted(PACKAGE.rglob('*'))
                   if p.is_file() and p.suffix in ('.ny', '.ni', '.c', '.h', '.py', '.yaml') and '.git' not in p.parts}}
+    if args.resume_native:
+        prior=json.loads((output/'acceptance.json').read_text())
+        native=json.loads((output/'native-acceptance/acceptance.json').read_text())
+        if prior['status']!='failed' or native['status']!='passed' or prior['sdk_manifest_sha256']!=report['sdk_manifest_sha256']:raise ValueError('complete retained native C gate and same SDK required')
+        for name,checksum in native['source_sha256'].items():
+            if Path(name).suffix in ('.c','.h') and digest(PACKAGE/name)!=checksum:raise ValueError('native C test inputs changed')
+        for name,checksum in native['native']['inputs_sha256'].items():
+            if digest(Path(name))!=checksum:raise ValueError('native C provider/source inputs changed')
+        report['previous_attempt']=prior
+        report['complete_native_cases_reused']=True
     def save() -> None:
         (output / 'acceptance.json').write_text(json.dumps(report, indent=2) + '\n')
     def run(name: str, command: list[str]) -> str:
+        if args.resume_native and name in ('native','tls-native-production-symbols','net-native','fixture','stream-fixture','list'):
+            return (output/(name+'.log')).read_text()
         report['commands'].append({'name': name, 'command': command}); save()
         print('BEGIN ' + name, flush=True)
         with (output / (name + '.log')).open('w') as log:
@@ -89,6 +102,12 @@ def main() -> int:
         print('END ' + name, flush=True)
         return (output / (name + '.log')).read_text()
     try:
+        native_library=output/'native-acceptance/native/libtls_native.a'
+        if args.resume_native:
+            repair=output/'native-production-repair'
+            run('repair-native',[sys.executable,str(PACKAGE/'scripts/build_native.py'),'--openssl-root',str(ssl),'--out-dir',str(repair),'--cc',environment['CC'],'--ar',environment['AR']])
+            native_library=repair/'libtls_native.a'
+            report['native_production_repair']=json.loads((repair/'native-manifest.json').read_text())
         run('native', [sys.executable, str(PACKAGE / 'scripts/accept_native.py'), '--openssl-root', str(ssl), '--out-dir', str(output / 'native-acceptance'), '--cc', args.native_cc,
             *(['--sanitize'] if not args.no_sanitize else []),
             *(['--openssl-cli', args.openssl_cli] if args.openssl_cli else [])])
@@ -99,7 +118,7 @@ def main() -> int:
         report['native_production_fixture_symbols'] = []
         stage = output / 'project'
         for source, name in ((PACKAGE, 'tls'), (net, 'net_core')):
-            shutil.copytree(source, stage / name, ignore=shutil.ignore_patterns('.git', '__pycache__', 'cache', 'bin', 'lib', 'out'))
+            shutil.copytree(source, stage / name, dirs_exist_ok=args.resume_native, ignore=shutil.ignore_patterns('.git', '__pycache__', 'cache', 'bin', 'lib', 'out'))
         for name in ('tls', 'net_core'):
             extra = '  net_core:\n    path: ../net_core\n' if name == 'tls' else ''
             (stage / name / 'package.yaml').write_text('name: ' + name + '\nversion: 0.1.0\nlicense: MIT\ndependencies:\n  stdlib:\n    precompiled: ' + json.dumps(str(sdk_entry(sdk, host, 'stdlib'))) + '\n' + extra + 'directories:\n  interface:\n    - interface\n  private:\n    - private\n    - tests\n')
@@ -123,7 +142,7 @@ def main() -> int:
             raise RuntimeError('missing or duplicate TLS case discovery')
         report['case_names'] = names
         binary = output / ('tls-tests' + suffix)
-        links = [output / 'native-acceptance/native/libtls_native.a', *static_libraries(ssl, windows), output / 'net-native/libnet_core_native.a', fixture, stream_fixture]
+        links = [native_library, *static_libraries(ssl, windows), output / 'net-native/libnet_core_native.a', fixture, stream_fixture]
         extra_links = system_libraries(windows, host.startswith('linux-'))
         if windows:
             extra_links.append('-liphlpapi')
@@ -149,7 +168,8 @@ def main() -> int:
         report['production_fixture_imports'] = []
         native = json.loads((output / 'native-acceptance/acceptance.json').read_text())
         report['native_cases'] = native['cases']
-        report['native_artifacts'] = native['native']
+        report['native_artifacts'] = report.get('native_production_repair', native['native'])
+        report['native_cases_receipt_sha256'] = digest(output/'native-acceptance/acceptance.json')
         for name, expected in report['net_core_source_sha256'].items():
             if digest(net / name) != expected:
                 raise RuntimeError('net_core source changed during acceptance: ' + name)

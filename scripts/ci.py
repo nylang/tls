@@ -12,19 +12,19 @@ from native_provider import source_layout
 PACKAGE=Path(__file__).resolve().parents[1]
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--resume-portable',action='store_true',help='Continue only portability after complete retained acceptance');p.add_argument('--out-dir',type=Path,required=True);p.add_argument('--sdk',type=Path,help='Reuse a local SDK, still checked against release.lock hashes');p.add_argument('--openssl-root',type=Path,help='Reuse the matching managed static OpenSSL provider');a=p.parse_args();out=a.out_dir.resolve()
-    if out.exists() and not a.resume_portable:p.error('new external output required')
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--resume-native',action='store_true');p.add_argument('--resume-portable',action='store_true',help='Continue only portability after complete retained acceptance');p.add_argument('--out-dir',type=Path,required=True);p.add_argument('--sdk',type=Path,help='Reuse a local SDK, still checked against release.lock hashes');p.add_argument('--openssl-root',type=Path,help='Reuse the matching managed static OpenSSL provider');a=p.parse_args();out=a.out_dir.resolve()
+    if out.exists() and not (a.resume_portable or a.resume_native):p.error('new external output required')
     if out==PACKAGE or PACKAGE in out.parents:p.error('output must be outside package')
-    out.mkdir(parents=True,exist_ok=a.resume_portable);win=os.name=='nt';suffix='.exe' if win else '';host={'Darwin':'darwin','Linux':'linux','Windows':'windows'}[platform.system()]+'-'+('arm64' if platform.machine().lower() in ('arm64','aarch64') else 'x86_64')
+    out.mkdir(parents=True,exist_ok=a.resume_portable or a.resume_native);win=os.name=='nt';suffix='.exe' if win else '';host={'Darwin':'darwin','Linux':'linux','Windows':'windows'}[platform.system()]+'-'+('arm64' if platform.machine().lower() in ('arm64','aarch64') else 'x86_64')
     lock=json.loads((PACKAGE/'release.lock.json').read_text());sdk_lock=lock['sdk'];pins=sdk_lock['hosts'].get(host);version=sdk_lock['version'];name='nyra-sdk-'+version+'-'+host
     if pins is None:raise ValueError('qualified SDK '+version+' pins are pending for '+host)
     if any(not isinstance(pins[key],str) or not re.fullmatch(r'[0-9a-f]{64}',pins[key]) for key in ('archive_sha256','manifest_sha256')):raise ValueError('SDK release hashes are not frozen; do not tag TLS yet')
     report={'format':'nyra-tls-ci-v1','status':'running','host':host,'source_commit':revision(PACKAGE),'net_core_commit':lock['net_core']['commit'],'sanitized':not win,'commands':[]}
-    prior=json.loads((out/'ci-report.json').read_text()) if a.resume_portable else None
+    prior=json.loads((out/'ci-report.json').read_text()) if (a.resume_portable or a.resume_native) else None
     if prior:report['previous_attempt']=prior
     def save():(out/'ci-report.json').write_text(json.dumps(report,indent=2)+'\n')
     def run(name,cmd,env=None):
-        if a.resume_portable and name in ('provider-layout-unit','sdk-layout-unit','packager-unit','net-init','net-line-endings','net-remote','net-fetch','net-checkout','accept','tls-native'):
+        if (a.resume_portable or a.resume_native) and name in ('provider-layout-unit','sdk-layout-unit','packager-unit','net-init','net-line-endings','net-remote','net-fetch','net-checkout') or a.resume_portable and name in ('accept','tls-native'):
             if not (out/(name+'.log')).is_file():raise ValueError('missing completed step log: '+name)
             return
         report['commands'].append({'name':name,'command':list(map(str,cmd))});save();print('BEGIN '+name,flush=True)
@@ -70,12 +70,12 @@ def main():
         provider_env=os.environ.copy()
         if platform.system()=='Darwin':provider_env['MACOSX_DEPLOYMENT_TARGET']='14.0'
         if a.openssl_root:
-            ssl=out/'openssl-provider' if a.resume_portable else source_layout(a.openssl_root.expanduser(),out/'openssl-provider',win)
+            ssl=out/'openssl-provider' if (a.resume_portable or a.resume_native) else source_layout(a.openssl_root.expanduser(),out/'openssl-provider',win)
         else:
             run('openssl',[sys.executable,PACKAGE/'scripts/build_openssl.py','--out-dir',out/'openssl','--perl',perl,'--build-cli','--jobs','4'],provider_env)
             ssl=out/'openssl'/('openssl-'+json.loads((PACKAGE/'openssl.lock.json').read_text())['version'])
         cc=shutil.which('clang') or 'clang'
-        run('accept',[sys.executable,PACKAGE/'scripts/accept.py','--sdk',sdk,'--net-core',net,'--openssl-root',ssl,'--native-cc',cc,'--out-dir',out/'acceptance',*(['--no-sanitize'] if win else [])])
+        run('accept',[sys.executable,PACKAGE/'scripts/accept.py','--sdk',sdk,'--net-core',net,'--openssl-root',ssl,'--native-cc',cc,'--out-dir',out/'acceptance',*(['--no-sanitize'] if win else []),*(['--resume-native'] if a.resume_native else [])])
         accepted=json.loads((out/'acceptance/acceptance.json').read_text());report['acceptance']=accepted
         # Use ordinary production archives, not the acceptance suite's interposed transport.
         kit=sdk/'hosts'/host/'llvm/bin';env=os.environ|{'CC':str(kit/('clang'+suffix)),'AR':str(kit/('llvm-ar'+suffix)),'PATH':str(kit)+os.pathsep+os.environ.get('PATH',''),'NYRA_SDK_ROOT':str(sdk),'NYRA_KERNEL_ROOT':str(out/'source-fallback-disabled')}
