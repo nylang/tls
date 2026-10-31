@@ -74,13 +74,22 @@ jobs:
         with:
           pattern: acceptance-*
           path: ${{ runner.temp }}/tls-receipts
+      - name: Match tag, manifest and source lock version
+        shell: python
+        run: |
+          import json, os, pathlib, re
+          text = pathlib.Path('package.yaml').read_text()
+          version = re.search(r'^version: (\d+\.\d+\.\d+)\s*$', text, re.M)[1]
+          lock = json.loads(pathlib.Path('release.lock.json').read_text())
+          if lock['version'] != version or os.environ['GITHUB_REF_NAME'] != 'v' + version:
+              raise ValueError('tag, package manifest and source lock version must agree')
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('PACKAGE_VERSION=' + version + '\n')
       - name: Verify exact tested sources and assemble source-only distribution
         shell: python
         run: |
           import json, os, pathlib, subprocess, sys
           lock = json.loads(pathlib.Path('release.lock.json').read_text())
-          if os.environ['GITHUB_REF_NAME'] != 'v0.2.0':
-              raise ValueError('tag differs from TLS distribution version')
           net = os.path.join(os.environ['RUNNER_TEMP'], 'locked-net-core')
           subprocess.run(['git', 'init', net], check=True)
           subprocess.run(['git', '-C', net, 'config', 'core.autocrlf', 'false'], check=True)
@@ -94,6 +103,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$GITHUB_REF_NAME" --draft --title "TLS 0.2.0" --notes-file docs/release-0.2.0.md
-          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/tls-release/tls-0.2.0-source.tar.gz" "$RUNNER_TEMP/tls-release/release.json" "$RUNNER_TEMP/tls-release/SHA256SUMS"
+          gh release create "$GITHUB_REF_NAME" --draft --title "TLS $PACKAGE_VERSION" --notes-file MIGRATION.md
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/tls-release/tls-$PACKAGE_VERSION-source.tar.gz" "$RUNNER_TEMP/tls-release/release.json" "$RUNNER_TEMP/tls-release/SHA256SUMS"
           gh release edit "$GITHUB_REF_NAME" --draft=false
