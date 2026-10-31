@@ -28,29 +28,28 @@ pub struct TlsChannel {
   cell: arc<TlsChannelData>?;
 }
 
-func tls_channel_fail(state: arc<TlsChannelData>, error: TlsStreamError) -> TlsStreamError {
-  var s: arc<TlsChannelData> = state;
-  s.stream.Close();
-  s.write_owner = NetBuffer{};
-  s.write_retry = false;
-  s.probe_retry = false;
-  s.failure = error;
+method(TlsChannelData) Fail(error: TlsStreamError) -> TlsStreamError {
+  self.stream.Close();
+  self.write_owner = NetBuffer{};
+  self.write_retry = false;
+  self.probe_retry = false;
+  self.failure = error;
 
   return error;
 }
 
-func tls_channel_check(s: arc<TlsChannelData>, options: ref NetOperationOptions) -> TlsStreamError? {
-  if s.failure != nil {
-    return s.failure;
+method(TlsChannelData) Check(options: ref NetOperationOptions) -> TlsStreamError? {
+  if self.failure != nil {
+    return self.failure;
   }
 
-  let check: Result<Unit, NetError> = options.Check(NetClock.NowNanoseconds());
+  let check: Result<Unit, NetError> = options.CheckNow();
   if check.IsErr() {
-    return tls_channel_fail(s, tls_stream_transport_error((check.get_if<NetError>()) as NetError));
+    return self.Fail(TlsStreamError.FromTransport((check.get_if<NetError>()) as NetError));
   }
 
-  if !s.stream.IsOpen() {
-    return tls_stream_error(TlsErrorKind.Closed);
+  if !self.stream.IsOpen() {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   return nil;
@@ -74,13 +73,13 @@ pub static method(TlsChannel) NewClient(
   }
 
   if settings.ciphertext_capacity < 32768 {
-    return tls_stream_error(TlsErrorKind.InvalidArgument);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidArgument);
   }
 
   var made: Result<TlsStream, TlsStreamError> = TlsStream.NewClientWithLimit(
     connection,
     settings,
-    16384 as intptr
+    16384ip
   );
   if made.IsErr() {
     return (made.get_if<TlsStreamError>()) as TlsStreamError;
@@ -107,8 +106,7 @@ pub method(TlsChannel) operator drop() -> void {
   self.cell = nil;
 }
 
-func tls_channel_operation(
-  s: arc<TlsChannelData>,
+method(TlsChannelData) DriveOperation(
   queued: Result<AsyncFuture<TlsTransfer>, TlsStreamError>
 ) -> Result<Unit, TlsStreamError> {
   if queued.IsErr() {
@@ -119,20 +117,20 @@ func tls_channel_operation(
     queued.get_if<AsyncFuture<TlsTransfer>>()
   ) as AsyncFuture<TlsTransfer>;
   while !future.is_completed {
-    let result: Result<int32, TlsStreamError> = s.stream.Poll(-1);
+    let result: Result<int32, TlsStreamError> = self.stream.Poll(-1);
     if result.IsErr() {
-      return tls_channel_fail(s,(result.get_if<TlsStreamError>()) as TlsStreamError);
+      return self.Fail((result.get_if<TlsStreamError>()) as TlsStreamError);
     }
   }
 
   let result: Result<TlsTransfer, AsyncError> = future.GetResult();
   if result.IsErr() {
-    return tls_channel_fail(s, tls_stream_error(TlsErrorKind.Closed));
+    return self.Fail(TlsStreamError.FromTlsKind(TlsErrorKind.Closed));
   }
 
   let transfer: TlsTransfer = (result.get_if<TlsTransfer>()) as TlsTransfer;
   if transfer.error != nil {
-    return tls_channel_fail(s, transfer.error as TlsStreamError);
+    return self.Fail(transfer.error as TlsStreamError);
   }
 
   return Unit{};
@@ -146,11 +144,11 @@ func tls_channel_operation(
  */
 pub method(TlsChannel) Handshake(options: ref NetOperationOptions) -> Result<Unit, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
-  let failure: TlsStreamError? = tls_channel_check(s, options);
+  let failure: TlsStreamError? = (s).Check(options);
   if failure != nil {
     return failure as TlsStreamError;
   }
@@ -159,7 +157,7 @@ pub method(TlsChannel) Handshake(options: ref NetOperationOptions) -> Result<Uni
     return Unit{};
   }
 
-  return tls_channel_operation(s, s.stream.HandshakeAsync(options));
+  return (s).DriveOperation(s.stream.HandshakeAsync(options));
 }
 
 /**
@@ -169,7 +167,7 @@ pub method(TlsChannel) Handshake(options: ref NetOperationOptions) -> Result<Uni
  */
 pub method(TlsChannel) SelectedAlpn() -> Result<string, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   let s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
@@ -181,33 +179,32 @@ pub method(TlsChannel) SelectedAlpn() -> Result<string, TlsStreamError> {
 }
 
 // This flush never installs a hidden write-only readiness registration.
-func tls_channel_flush(
-  s: arc<TlsChannelData>,
+method(TlsChannelData) Flush(
   options: ref NetOperationOptions
 ) -> Result<bool, TlsStreamError> {
-  var state: arc<TlsStreamState> = s.stream.cell as arc<TlsStreamState>;
+  var state: arc<TlsStreamState> = self.stream.cell as arc<TlsStreamState>;
   var rounds: int32 = 0;
   while rounds < 8 {
-    let failure: TlsStreamError? = tls_channel_check(s, options);
+    let failure: TlsStreamError? = self.Check(options);
     if failure != nil {
       return failure as TlsStreamError;
     }
 
     rounds = rounds + 1;
     if state.outgoing_start == state.outgoing_count {
-      state.outgoing_start = 0 as intptr;
-      state.outgoing_count = 0 as intptr;
-      if state.session.PendingCiphertext() == (0 as intptr) {
+      state.outgoing_start = 0ip;
+      state.outgoing_count = 0ip;
+      if state.session.PendingCiphertext() == (0ip) {
         return true;
       }
 
       let range: NetMutableBytes = (NetMutableBytes.FromRaw(
         &mut state.outgoing[0],
-        16384 as intptr
+        16384ip
       ).get_if<NetMutableBytes>()) as NetMutableBytes;
       let drained: Result<intptr, TlsError> = state.session.DrainCiphertext(range);
       if drained.IsErr() {
-        return tls_channel_fail(s, TlsStreamError{tls_error:(drained.get_if<TlsError>()) as TlsError});
+        return self.Fail(TlsStreamError{tls_error:(drained.get_if<TlsError>()) as TlsError});
       }
 
       state.outgoing_count = (drained.get_if<intptr>()) as intptr;
@@ -222,7 +219,7 @@ func tls_channel_flush(
       state.outgoing_count - state.outgoing_start
     ).get_if<NetBytes>()) as NetBytes;
     let sent: Result<intptr, NetError> = state.connection.TryWrite(suffix);
-    let after: TlsStreamError? = tls_channel_check(s, options);
+    let after: TlsStreamError? = self.Check(options);
     if after != nil {
       return after as TlsStreamError;
     }
@@ -233,18 +230,18 @@ func tls_channel_flush(
         return false;
       }
 
-      return tls_channel_fail(s, tls_stream_transport_error(error));
+      return self.Fail(TlsStreamError.FromTransport(error));
     }
 
     let count: intptr = (sent.get_if<intptr>()) as intptr;
-    if count <= (0 as intptr) {
-      return tls_channel_fail(s, tls_stream_transport_error(NetError{kind: NetErrorKind.Closed}));
+    if count <= (0ip) {
+      return self.Fail(TlsStreamError.FromTransport(NetError{kind: NetErrorKind.Closed}));
     }
 
     state.outgoing_start = state.outgoing_start + count;
   }
 
-  return state.outgoing_start == state.outgoing_count && state.session.PendingCiphertext() == (0 as intptr);
+  return state.outgoing_start == state.outgoing_count && state.session.PendingCiphertext() == (0ip);
 }
 
 /**
@@ -257,20 +254,20 @@ func tls_channel_flush(
  */
 pub method(TlsChannel) Flush(options: ref NetOperationOptions) -> Result<bool, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
-  let failure: TlsStreamError? = tls_channel_check(s, options);
+  let failure: TlsStreamError? = (s).Check(options);
   if failure != nil {
     return failure as TlsStreamError;
   }
 
   if ! ((s.stream.cell as arc<TlsStreamState>).handshaken) {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
-  return tls_channel_flush(s, options);
+  return (s).Flush(options);
 }
 
 /**
@@ -288,27 +285,27 @@ pub method(TlsChannel) WriteAvailable(
   options: ref NetOperationOptions
 ) -> Result<TlsChannelWrite, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
-  let failure: TlsStreamError? = tls_channel_check(s, options);
+  let failure: TlsStreamError? = (s).Check(options);
   if failure != nil {
     return failure as TlsStreamError;
   }
 
   var state: arc<TlsStreamState> = s.stream.cell as arc<TlsStreamState>;
   if !state.handshaken || state.peer_closed {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
-  if buffer.RetainedBytes() >(16384 as intptr) {
-    return tls_stream_error(TlsErrorKind.ResourceExhausted);
+  if buffer.RetainedBytes() >(16384ip) {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.ResourceExhausted);
   }
 
   if s.write_retry {
     if buffer.Len() != s.write_owner.Len() {
-      return tls_stream_error(TlsErrorKind.InvalidState);
+      return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
     }
 
     let incoming: NetBytes = buffer.Bytes();
@@ -317,7 +314,7 @@ pub method(TlsChannel) WriteAvailable(
     unsafe {
       while i<(buffer.Len() as int32) {
         if incoming.Data()[i] != retained.Data()[i] {
-          return tls_stream_error(TlsErrorKind.InvalidState);
+          return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
         }
 
         i = i + 1;
@@ -329,7 +326,7 @@ pub method(TlsChannel) WriteAvailable(
     return TlsChannelWrite{state: TlsChannelWriteState.RetryRead};
   }
 
-  let flushed: Result<bool, TlsStreamError> = tls_channel_flush(s, options);
+  let flushed: Result<bool, TlsStreamError> = (s).Flush(options);
   if flushed.IsErr() {
     return (flushed.get_if<TlsStreamError>()) as TlsStreamError;
   }
@@ -339,15 +336,15 @@ pub method(TlsChannel) WriteAvailable(
   }
 
   if s.write_retry && s.write_needs_input {
-    let fed: TlsStreamError? = tls_stream_feed(state);
+    let fed: TlsStreamError? = (state).FeedInput();
     if fed != nil {
-      return tls_channel_fail(s, fed as TlsStreamError);
+      return (s).Fail(fed as TlsStreamError);
     }
 
     if state.incoming_start == state.incoming_count && !state.input_ended {
       let range: NetMutableBytes = (NetMutableBytes.FromRaw(
         &mut state.incoming[0],
-        16384 as intptr
+        16384ip
       ).get_if<NetMutableBytes>()) as NetMutableBytes;
       let received: Result<intptr, NetError> = state.connection.TryRead(range);
       if received.IsErr() {
@@ -356,18 +353,18 @@ pub method(TlsChannel) WriteAvailable(
           return TlsChannelWrite{state: TlsChannelWriteState.NeedRead};
         }
 
-        return tls_channel_fail(s, tls_stream_transport_error(error));
+        return (s).Fail(TlsStreamError.FromTransport(error));
       }
 
-      state.incoming_start = 0 as intptr;
+      state.incoming_start = 0ip;
       state.incoming_count = (received.get_if<intptr>()) as intptr;
-      if state.incoming_count == (0 as intptr) {
+      if state.incoming_count == (0ip) {
         state.input_eof = true;
       }
 
-      let admitted: TlsStreamError? = tls_stream_feed(state);
+      let admitted: TlsStreamError? = (state).FeedInput();
       if admitted != nil {
-        return tls_channel_fail(s, admitted as TlsStreamError);
+        return (s).Fail(admitted as TlsStreamError);
       }
     }
   }
@@ -379,14 +376,14 @@ pub method(TlsChannel) WriteAvailable(
       return TlsStreamError{tls_error: error};
     }
 
-    return tls_channel_fail(s, TlsStreamError{tls_error: error});
+    return (s).Fail(TlsStreamError{tls_error: error});
   }
 
   let progress: TlsProgress = (result.get_if<TlsProgress>()) as TlsProgress;
   // This profile reserves an empty >=32 KiB BIO before a <=16 KiB application
   // write. Provider retry barriers are retained; callers retry identical input.
   if progress.state == TlsStepState.PeerClosed {
-    return tls_channel_fail(s, tls_stream_error(TlsErrorKind.UnexpectedEof));
+    return (s).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.UnexpectedEof));
   }
 
   s.write_retry = progress.state != TlsStepState.Complete;
@@ -406,7 +403,7 @@ pub method(TlsChannel) WriteAvailable(
   }
 
   let count: intptr = progress.bytes_transferred;
-  let after: TlsStreamError? = tls_channel_check(s, options);
+  let after: TlsStreamError? = (s).Check(options);
 
   return TlsChannelWrite{state: next, transfer: TlsTransfer{bytes_transferred: count, error: after}};
 }
@@ -425,18 +422,18 @@ pub method(TlsChannel) ReadAvailable(
   options: ref NetOperationOptions
 ) -> Result<TlsChannelRead, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
-  let failure: TlsStreamError? = tls_channel_check(s, options);
+  let failure: TlsStreamError? = (s).Check(options);
   if failure != nil {
     return failure as TlsStreamError;
   }
 
   var state: arc<TlsStreamState> = s.stream.cell as arc<TlsStreamState>;
   if !state.handshaken {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
   if s.write_retry {
@@ -450,13 +447,13 @@ pub method(TlsChannel) ReadAvailable(
   var rounds: int32 = 0;
   while rounds < 8 {
     rounds = rounds + 1;
-    let control: TlsStreamError? = tls_channel_check(s, options);
+    let control: TlsStreamError? = (s).Check(options);
     if control != nil {
       return control as TlsStreamError;
     }
 
     if s.probe_retry {
-      let flushed: Result<bool, TlsStreamError> = tls_channel_flush(s, options);
+      let flushed: Result<bool, TlsStreamError> = (s).Flush(options);
       if flushed.IsErr() {
         return (flushed.get_if<TlsStreamError>()) as TlsStreamError;
       }
@@ -466,18 +463,18 @@ pub method(TlsChannel) ReadAvailable(
       }
     }
 
-    let fed: TlsStreamError? = tls_stream_feed(state);
+    let fed: TlsStreamError? = (state).FeedInput();
     if fed != nil {
-      return tls_channel_fail(s, fed as TlsStreamError);
+      return (s).Fail(fed as TlsStreamError);
     }
 
     let range: NetMutableBytes = (NetMutableBytes.FromRaw(
       &mut state.plaintext[0],
-      16384 as intptr
+      16384ip
     ).get_if<NetMutableBytes>()) as NetMutableBytes;
     let result: Result<TlsProgress, TlsError> = state.session.ProbeReadStep(range, options);
     if result.IsErr() {
-      return tls_channel_fail(s, TlsStreamError{tls_error:(result.get_if<TlsError>()) as TlsError});
+      return (s).Fail(TlsStreamError{tls_error:(result.get_if<TlsError>()) as TlsError});
     }
 
     let progress: TlsProgress = (result.get_if<TlsProgress>()) as TlsProgress;
@@ -485,7 +482,7 @@ pub method(TlsChannel) ReadAvailable(
     if progress.state == TlsStepState.Complete || progress.state == TlsStepState.PeerClosed {
       state.peer_closed = progress.state == TlsStepState.PeerClosed;
       let bytes: NetBytes = (range.AsReadOnly().Slice(
-        0 as intptr,
+        0ip,
         progress.bytes_transferred
       ).get_if<NetBytes>()) as NetBytes;
       let copied: Result<NetBuffer, NetError> = NetBuffer.CopyFrom(bytes);
@@ -494,12 +491,12 @@ pub method(TlsChannel) ReadAvailable(
           state: TlsChannelReadState.Ready,
           transfer: TlsTransfer{
             bytes_transferred: progress.bytes_transferred,
-            error: tls_channel_fail(s, tls_stream_transport_error((copied.get_if<NetError>()) as NetError))
+            error: (s).Fail(TlsStreamError.FromTransport((copied.get_if<NetError>()) as NetError))
           }
         };
       }
 
-      let after: TlsStreamError? = tls_channel_check(s, options);
+      let after: TlsStreamError? = (s).Check(options);
 
       return TlsChannelRead{
         state: TlsChannelReadState.Ready,
@@ -521,16 +518,16 @@ pub method(TlsChannel) ReadAvailable(
     }
 
     if state.input_ended {
-      return tls_channel_fail(s, tls_stream_error(TlsErrorKind.UnexpectedEof));
+      return (s).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.UnexpectedEof));
     }
 
     let input: NetMutableBytes = (NetMutableBytes.FromRaw(
       &mut state.incoming[0],
-      16384 as intptr
+      16384ip
     ).get_if<NetMutableBytes>()) as NetMutableBytes;
     let received: Result<intptr, NetError> = state.connection.TryRead(input);
     if received.IsErr() {
-      let after: TlsStreamError? = tls_channel_check(s, options);
+      let after: TlsStreamError? = (s).Check(options);
       if after != nil {
         return after as TlsStreamError;
       }
@@ -540,12 +537,12 @@ pub method(TlsChannel) ReadAvailable(
         return TlsChannelRead{state: TlsChannelReadState.NeedRead};
       }
 
-      return tls_channel_fail(s, tls_stream_transport_error(error));
+      return (s).Fail(TlsStreamError.FromTransport(error));
     }
 
-    state.incoming_start = 0 as intptr;
+    state.incoming_start = 0ip;
     state.incoming_count = (received.get_if<intptr>()) as intptr;
-    if state.incoming_count == (0 as intptr) {
+    if state.incoming_count == (0ip) {
       state.input_eof = true;
     }
   }
@@ -570,23 +567,23 @@ pub method(TlsChannel) Wait(
   options: ref NetOperationOptions
 ) -> Result<Unit, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
-  let failure: TlsStreamError? = tls_channel_check(s, options);
+  let failure: TlsStreamError? = (s).Check(options);
   if failure != nil {
     return failure as TlsStreamError;
   }
 
   if maximum_wait_ms < -1 || (!readable && !writable) {
-    return tls_stream_error(TlsErrorKind.InvalidArgument);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidArgument);
   }
 
   let state: arc<TlsStreamState> = s.stream.cell as arc<TlsStreamState>;
   var made: Result<NetEventLoop, NetError> = NetEventLoop.New(2);
   if made.IsErr() {
-    return tls_channel_fail(s, tls_stream_transport_error((made.get_if<NetError>()) as NetError));
+    return (s).Fail(TlsStreamError.FromTransport((made.get_if<NetError>()) as NetError));
   }
 
   var driver: NetEventLoop = move((made.get_if<NetEventLoop>()) as NetEventLoop);
@@ -598,7 +595,7 @@ pub method(TlsChannel) Wait(
       options
     );
     if registered.IsErr() {
-      return tls_channel_fail(s, tls_stream_transport_error((registered.get_if<NetError>()) as NetError));
+      return (s).Fail(TlsStreamError.FromTransport((registered.get_if<NetError>()) as NetError));
     }
 
     reading = (
@@ -612,7 +609,7 @@ pub method(TlsChannel) Wait(
       options
     );
     if registered.IsErr() {
-      return tls_channel_fail(s, tls_stream_transport_error((registered.get_if<NetError>()) as NetError));
+      return (s).Fail(TlsStreamError.FromTransport((registered.get_if<NetError>()) as NetError));
     }
 
     writing = (
@@ -621,13 +618,13 @@ pub method(TlsChannel) Wait(
   }
 
   let polled: Result<int32, NetError> = driver.Poll(maximum_wait_ms);
-  let after: TlsStreamError? = tls_channel_check(s, options);
+  let after: TlsStreamError? = (s).Check(options);
   if after != nil {
     return after as TlsStreamError;
   }
 
   if polled.IsErr() {
-    return tls_channel_fail(s, tls_stream_transport_error((polled.get_if<NetError>()) as NetError));
+    return (s).Fail(TlsStreamError.FromTransport((polled.get_if<NetError>()) as NetError));
   }
 
   var ready: AsyncFuture<Result<Unit, NetError>>? = nil;
@@ -642,12 +639,12 @@ pub method(TlsChannel) Wait(
       ready as AsyncFuture<Result<Unit, NetError>>
     ).GetResult();
     if result.IsErr() {
-      return tls_channel_fail(s, tls_stream_error(TlsErrorKind.Closed));
+      return (s).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.Closed));
     }
 
     let outcome: Result<Unit, NetError> = (result.get_if<Result<Unit, NetError>>()) as Result<Unit, NetError>;
     if outcome.IsErr() {
-      return tls_channel_fail(s, tls_stream_transport_error((outcome.get_if<NetError>()) as NetError));
+      return (s).Fail(TlsStreamError.FromTransport((outcome.get_if<NetError>()) as NetError));
     }
   }
 
@@ -664,11 +661,11 @@ pub method(TlsChannel) Wait(
  */
 pub method(TlsChannel) Shutdown(options: ref NetOperationOptions) -> Result<Unit, TlsStreamError> {
   if self.cell == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
-  let failure: TlsStreamError? = tls_channel_check(s, options);
+  let failure: TlsStreamError? = (s).Check(options);
   if failure != nil {
     return failure as TlsStreamError;
   }
@@ -676,12 +673,12 @@ pub method(TlsChannel) Shutdown(options: ref NetOperationOptions) -> Result<Unit
   let state: arc<TlsStreamState> = s.stream.cell as arc<TlsStreamState>;
   if s.probe_retry
     || s.write_retry
-    || state.session.PendingCiphertext() != (0 as intptr)
+    || state.session.PendingCiphertext() != (0ip)
     || state.outgoing_start<state.outgoing_count {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
-  return tls_channel_operation(s, s.stream.ShutdownAsync(options));
+  return (s).DriveOperation(s.stream.ShutdownAsync(options));
 }
 
 /**
@@ -704,6 +701,6 @@ pub method(TlsChannel) Close() -> void {
 
   let s: arc<TlsChannelData> = self.cell as arc<TlsChannelData>;
   if s.failure == nil {
-    let ignored: TlsStreamError = tls_channel_fail(s, tls_stream_error(TlsErrorKind.Closed));
+    let ignored: TlsStreamError = (s).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.Closed));
   }
 }

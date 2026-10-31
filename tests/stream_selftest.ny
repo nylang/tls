@@ -19,86 +19,87 @@ part of TlsContractTests;
 
 @extern("C") func nyra_tls_test_reset_native_code() -> int32;
 
-func tls_stream_test_options() -> NetOperationOptions {
-  return NetOperationOptions{deadline: NetDeadline.After(NetClock.NowNanoseconds(), 10000000000u64)};
+static method(NetOperationOptions) TlsTestDefault() -> NetOperationOptions {
+  let now: uint64 = Instant.Now().ToDurationSinceEpochish().ToNanoseconds();
+  return NetOperationOptions{deadline: NetDeadline.After(now, 10000000000u64)};
 }
 
-func tls_stream_test_connection(mode: int32, size: int32) -> TcpConnection {
+static method(TcpConnection) TlsTestDial(mode: int32, size: int32) -> TcpConnection {
   let port: int32 = nyra_tls_test_server_start(mode, size);
-  tls_test_assert(port > 0, "loopback fixture starts");
+  AssertTrueMsg(port > 0, "loopback fixture starts");
   let endpoint: NetEndpoint = (NetEndpoint.New(
     IpAddress.V4(127u8, 0u8, 0u8, 1u8),
     port
   ).get_if<NetEndpoint>()) as NetEndpoint;
-  var connected: Result<TcpConnection, NetError> = TcpConnection.Dial(endpoint, tls_stream_test_options());
-  tls_test_assert(connected.IsOk(), "loopback TCP connects");
+  var connected: Result<TcpConnection, NetError> = TcpConnection.Dial(endpoint, NetOperationOptions.TlsTestDefault());
+  AssertTrueMsg(connected.IsOk(), "loopback TCP connects");
 
   return move((connected.get_if<TcpConnection>()) as TcpConnection);
 }
 
-func tls_stream_test_new(mode: int32, size: int32) -> TlsStream {
-  var connection: TcpConnection = tls_stream_test_connection(mode, size);
-  var made: Result<TlsStream, TlsStreamError> = TlsStream.NewClient(connection, tls_test_config());
-  tls_test_assert(made.IsOk(), "TLS stream adopts TCP");
-  tls_test_assert(!connection.IsOpen(), "successful construction transfers the socket owner");
+static method(TlsStream) TestNew(mode: int32, size: int32) -> TlsStream {
+  var connection: TcpConnection = TcpConnection.TlsTestDial(mode, size);
+  var made: Result<TlsStream, TlsStreamError> = TlsStream.NewClient(connection, TlsClientConfig.TestDefault());
+  AssertTrueMsg(made.IsOk(), "TLS stream adopts TCP");
+  AssertTrueMsg(!connection.IsOpen(), "successful construction transfers the socket owner");
 
   return move((made.get_if<TlsStream>()) as TlsStream);
 }
 
-func tls_stream_test_future(
+static method(AsyncFuture<TlsTransfer>) TlsTestAdmit(
   queued: Result<AsyncFuture<TlsTransfer>, TlsStreamError>
 ) -> AsyncFuture<TlsTransfer> {
-  tls_test_assert(queued.IsOk(), "TLS operation is admitted");
+  AssertTrueMsg(queued.IsOk(), "TLS operation is admitted");
 
   return (queued.get_if<AsyncFuture<TlsTransfer>>()) as AsyncFuture<TlsTransfer>;
 }
 
-func tls_stream_test_pump(stream: ref mut TlsStream, future: ref AsyncFuture<TlsTransfer>) -> TlsTransfer {
+method(TlsStream) TestPump(future: ref AsyncFuture<TlsTransfer>) -> TlsTransfer {
   var count: int32 = 0;
   while !future.is_completed && count < 50000 {
-    tls_test_assert(stream.Poll(-1).IsOk(), "TLS Poll succeeds");
+    AssertTrueMsg(self.Poll(-1).IsOk(), "TLS Poll succeeds");
     count = count + 1;
   }
 
-  tls_test_assert(future.is_completed, "bounded TLS operation completes");
+  AssertTrueMsg(future.is_completed, "bounded TLS operation completes");
   let result: Result<TlsTransfer, AsyncError> = future.GetResult();
-  tls_test_assert(result.IsOk(), "operation errors remain in the transfer payload");
+  AssertTrueMsg(result.IsOk(), "operation errors remain in the transfer payload");
 
   return (result.get_if<TlsTransfer>()) as TlsTransfer;
 }
 
-func tls_stream_test_handshake(stream: ref mut TlsStream) -> void {
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.HandshakeAsync(tls_stream_test_options())
+method(TlsStream) TestHandshake() -> void {
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    self.HandshakeAsync(NetOperationOptions.TlsTestDefault())
   );
-  let result: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_test_assert(
+  let result: TlsTransfer = self.TestPump(future);
+  AssertTrueMsg(
     result.error == nil && result.bytes_transferred == 0,
     "verified handshake flushes before completion"
   );
-  tls_test_assert(
-    stream.PendingCount() == 0 && stream.RetainedBytes() == 0,
+  AssertTrueMsg(
+    self.PendingCount() == 0 && self.RetainedBytes() == 0,
     "handshake detaches pending state"
   );
 }
 
-func tls_stream_test_tls_error(value: ref TlsTransfer, expected: TlsErrorKind) -> void {
-  tls_test_assert(value.error != nil, "transfer carries a failure");
-  if value.error == nil {
+method(TlsTransfer) TestTlsError(expected: TlsErrorKind) -> void {
+  AssertTrueMsg(self.error != nil, "transfer carries a failure");
+  if self.error == nil {
     return;
   }
 
-  let error: TlsStreamError = value.error as TlsStreamError;
-  tls_test_assert(
+  let error: TlsStreamError = self.error as TlsStreamError;
+  AssertTrueMsg(
     error.tls_error != nil && error.transport_error == nil,
     "TLS failures retain their named category"
   );
   if error.tls_error != nil {
-    tls_test_assert((error.tls_error as TlsError).kind == expected, "expected TLS failure kind");
+    AssertTrueMsg((error.tls_error as TlsError).kind == expected, "expected TLS failure kind");
   }
 }
 
-func tls_stream_test_payload(size: int32) -> NetBuffer {
+static method(NetBuffer) TlsTestPattern(size: int32) -> NetBuffer {
   var bytes: owned <uint8>[] = new <uint8>[size];
   var i: int32 = 0;
   while i < size {
@@ -113,34 +114,34 @@ func tls_stream_test_payload(size: int32) -> NetBuffer {
 
 @test(tag = "tls_engine")
 func test_tls_stream_patterned_short_writes_and_shutdown() {
-  var stream: TlsStream = tls_stream_test_new(0, 200000);
+  var stream: TlsStream = TlsStream.TestNew(0, 200000);
   nyra_tls_test_write_controls(317, 5, -1);
-  tls_stream_test_handshake(stream);
-  var payload: NetBuffer = tls_stream_test_payload(200000);
-  let sent: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.WriteAllAsync(
+  (stream).TestHandshake();
+  var payload: NetBuffer = NetBuffer.TlsTestPattern(200000);
+  let sent: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.WriteAllAsync(
     payload,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  tls_test_assert(stream.RetainedBytes() == (200000 as intptr), "pending write charges its retained root");
+  AssertTrueMsg(stream.RetainedBytes() == (200000 as intptr), "pending write charges its retained root");
   payload = NetBuffer{};
-  let written: TlsTransfer = tls_stream_test_pump(stream, sent);
-  tls_test_assert(
+  let written: TlsTransfer = (stream).TestPump(sent);
+  AssertTrueMsg(
     written.error == nil && written.bytes_transferred == (200000 as intptr),
     "all plaintext accepted exactly once"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     nyra_tls_test_partial_writes() > 0 && nyra_tls_test_write_stalls() > 0,
     "fixture forced partial writes and WouldBlock"
   );
   var total: int32 = 0;
   var correct: bool = true;
   while total < 200000 {
-    let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+    let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
       4096,
-      tls_stream_test_options()
+      NetOperationOptions.TlsTestDefault()
     ));
-    let read: TlsTransfer = tls_stream_test_pump(stream, future);
-    tls_test_assert(
+    let read: TlsTransfer = (stream).TestPump(future);
+    AssertTrueMsg(
       read.error == nil && !read.eof && read.bytes_transferred > 0,
       "echo returns initialized plaintext"
     );
@@ -163,139 +164,140 @@ func test_tls_stream_patterned_short_writes_and_shutdown() {
     total = total + read.bytes_transferred as int32;
   }
 
-  tls_test_assert(total == 200000 && correct, "fragmented echo preserves every byte without duplication");
-  let eof_future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+  AssertTrueMsg(total == 200000 && correct, "fragmented echo preserves every byte without duplication");
+  let eof_future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
     1,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let eof: TlsTransfer = tls_stream_test_pump(stream, eof_future);
-  tls_test_assert(
+  let eof: TlsTransfer = (stream).TestPump(eof_future);
+  AssertTrueMsg(
     eof.error == nil && eof.eof && eof.bytes_transferred == 0,
     "close_notify is authenticated EOF"
   );
-  let closed: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.ShutdownAsync(tls_stream_test_options())
+  let closed: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.ShutdownAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_test_assert(tls_stream_test_pump(stream, closed).error == nil, "bidirectional TLS shutdown succeeds");
-  tls_test_assert(
+  AssertTrueMsg((stream).TestPump(closed).error == nil, "bidirectional TLS shutdown succeeds");
+  AssertTrueMsg(
     !stream.IsOpen() && stream.PendingCount() == 0 && stream.RetainedBytes() == 0,
     "shutdown retires resources before publication"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "peer observed matching transfer and close_notify");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "peer observed matching transfer and close_notify");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_admission_budget_and_move() {
-  var connection: TcpConnection = tls_stream_test_connection(3, 0);
-  var invalid: TlsClientConfig = tls_test_config();
+  var connection: TcpConnection = TcpConnection.TlsTestDial(3, 0);
+  var invalid: TlsClientConfig = TlsClientConfig.TestDefault();
   invalid.peer_name = "";
-  tls_test_assert(
+  AssertTrueMsg(
     TlsStream.NewClient(connection, invalid).IsErr() && connection.IsOpen(),
     "failed construction preserves caller socket"
   );
   var made: Result<TlsStream, TlsStreamError> = TlsStream.NewClientWithLimit(
     connection,
-    tls_test_config(),
+    TlsClientConfig.TestDefault(),
     8 as intptr
   );
   var stream: TlsStream = move((made.get_if<TlsStream>()) as TlsStream);
-  tls_stream_test_handshake(stream);
-  let root: NetBuffer = tls_stream_test_payload(16);
+  (stream).TestHandshake();
+  let root: NetBuffer = NetBuffer.TlsTestPattern(16);
   let tiny: NetBuffer = (root.Slice(0 as intptr, 1 as intptr).get_if<NetBuffer>()) as NetBuffer;
-  tls_test_assert(
-    stream.WriteAllAsync(tiny, tls_stream_test_options()).IsErr(),
+  AssertTrueMsg(
+    stream.WriteAllAsync(tiny, NetOperationOptions.TlsTestDefault()).IsErr(),
     "small slice still charges the whole backing allocation"
   );
-  tls_test_assert(
-    stream.ReadAsync(9, tls_stream_test_options()).IsErr(),
+  AssertTrueMsg(
+    stream.ReadAsync(9, NetOperationOptions.TlsTestDefault()).IsErr(),
     "read reservation respects payload budget"
   );
-  tls_test_assert(stream.ReadAsync(-1, tls_stream_test_options()).IsErr(), "negative read rejected");
-  tls_test_assert(stream.ReadAsync(16385, tls_stream_test_options()).IsErr(), "oversize read rejected");
-  tls_test_assert(stream.PendingCount() == 0 && stream.IsOpen(), "admission failures preserve idle stream");
-  let read: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(8, tls_stream_test_options()));
-  tls_test_assert(stream.ShutdownAsync(tls_stream_test_options()).IsErr(), "overlapping operation rejected");
-  tls_test_assert(stream.RetainedBytes() == (8 as intptr), "original operation remains admitted");
+  AssertTrueMsg(stream.ReadAsync(-1, NetOperationOptions.TlsTestDefault()).IsErr(), "negative read rejected");
+  AssertTrueMsg(stream.ReadAsync(16385, NetOperationOptions.TlsTestDefault()).IsErr(), "oversize read rejected");
+  AssertTrueMsg(stream.PendingCount() == 0 && stream.IsOpen(), "admission failures preserve idle stream");
+  let read: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(8,
+    NetOperationOptions.TlsTestDefault()));
+  AssertTrueMsg(stream.ShutdownAsync(NetOperationOptions.TlsTestDefault()).IsErr(), "overlapping operation rejected");
+  AssertTrueMsg(stream.RetainedBytes() == (8 as intptr), "original operation remains admitted");
   var moved: TlsStream = move(stream);
-  tls_test_assert(moved.PendingCount() == 1, "move preserves pending operation");
+  AssertTrueMsg(moved.PendingCount() == 1, "move preserves pending operation");
   moved.Close();
   moved.Close();
-  tls_test_assert(read.is_completed, "Close publishes pending read failure");
-  tls_stream_test_tls_error((read.GetResult().get_if<TlsTransfer>()) as TlsTransfer, TlsErrorKind.Closed);
-  tls_test_assert(nyra_tls_test_server_join() == 0, "silent peer retires");
+  AssertTrueMsg(read.is_completed, "Close publishes pending read failure");
+  ((read.GetResult().get_if<TlsTransfer>()) as TlsTransfer).TestTlsError(TlsErrorKind.Closed);
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "silent peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_handshake_absolute_deadline() {
-  var stream: TlsStream = tls_stream_test_new(1, 0);
-  let started: uint64 = NetClock.NowNanoseconds();
+  var stream: TlsStream = TlsStream.TestNew(1, 0);
+  let started: uint64 = Instant.Now().ToDurationSinceEpochish().ToNanoseconds();
   let options: NetOperationOptions = NetOperationOptions{deadline: NetDeadline.After(started, 30000000u64)};
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.HandshakeAsync(options));
-  let result: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_stream_test_tls_error(result, TlsErrorKind.TimedOut);
-  tls_test_assert(
-    NetClock.NowNanoseconds() - started < 2000000000u64,
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.HandshakeAsync(options));
+  let result: TlsTransfer = (stream).TestPump(future);
+  (result).TestTlsError(TlsErrorKind.TimedOut);
+  AssertTrueMsg(
+    Instant.Now().ToDurationSinceEpochish().ToNanoseconds() - started < 2000000000u64,
     "wait uses the original deadline instead of restarting its budget"
   );
-  tls_test_assert(!stream.IsOpen() && stream.PendingCount() == 0, "timeout closes all stream resources");
-  tls_test_assert(nyra_tls_test_server_join() == 0, "silent peer retires after timeout");
+  AssertTrueMsg(!stream.IsOpen() && stream.PendingCount() == 0, "timeout closes all stream resources");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "silent peer retires after timeout");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_wakeable_cancel() {
-  var stream: TlsStream = tls_stream_test_new(1, 0);
+  var stream: TlsStream = TlsStream.TestNew(1, 0);
   let token: NetCancellation = (NetCancellation.NewWakeable().get_if<NetCancellation>()) as NetCancellation;
   let options: NetOperationOptions = NetOperationOptions{
-    deadline: NetDeadline.After(NetClock.NowNanoseconds(), 3000000000u64),
+    deadline: NetDeadline.After(Instant.Now().ToDurationSinceEpochish().ToNanoseconds(), 3000000000u64),
     cancellation: token
   };
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.HandshakeAsync(options));
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.HandshakeAsync(options));
   var spawned: Result<Thread, ThreadError> = Thread.Spawn(
     lambda[copy token]() -> void {
       Thread.Sleep(30u32);
       token.Cancel();
     }
   );
-  tls_test_assert(spawned.IsOk(), "cancelling thread starts");
+  AssertTrueMsg(spawned.IsOk(), "cancelling thread starts");
   var worker: Thread = move((spawned.get_if<Thread>()) as Thread);
-  let started: uint64 = NetClock.NowNanoseconds();
-  tls_stream_test_tls_error(tls_stream_test_pump(stream, future), TlsErrorKind.Cancelled);
-  tls_test_assert(
-    NetClock.NowNanoseconds() - started < 2000000000u64,
+  let started: uint64 = Instant.Now().ToDurationSinceEpochish().ToNanoseconds();
+  ((stream).TestPump(future)).TestTlsError(TlsErrorKind.Cancelled);
+  AssertTrueMsg(
+    Instant.Now().ToDurationSinceEpochish().ToNanoseconds() - started < 2000000000u64,
     "wakeable cancellation interrupts idle native wait"
   );
-  tls_test_assert(worker.Join().IsOk(), "cancelling thread joins");
-  tls_test_assert(
+  AssertTrueMsg(worker.Join().IsOk(), "cancelling thread joins");
+  AssertTrueMsg(
     !stream.IsOpen() && stream.PendingCount() == 0,
     "cancellation retires stream before completion"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "cancelled peer retires");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "cancelled peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_transport_failure_preserves_progress() {
-  var stream: TlsStream = tls_stream_test_new(3, 0);
-  tls_stream_test_handshake(stream);
+  var stream: TlsStream = TlsStream.TestNew(3, 0);
+  (stream).TestHandshake();
   nyra_tls_test_write_controls(317, 5, 20000);
-  let payload: NetBuffer = tls_stream_test_payload(200000);
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.WriteAllAsync(
+  let payload: NetBuffer = NetBuffer.TlsTestPattern(200000);
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.WriteAllAsync(
     payload,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let result: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_test_assert(
+  let result: TlsTransfer = (stream).TestPump(future);
+  AssertTrueMsg(
     result.error != nil && result.bytes_transferred > 0 && result.bytes_transferred < payload.Len(),
     "terminal write retains committed plaintext prefix count"
   );
   if result.error != nil {
     let error: TlsStreamError = result.error as TlsStreamError;
-    tls_test_assert(
+    AssertTrueMsg(
       error.tls_error == nil && error.transport_error != nil,
       "transport error remains discoverable"
     );
     if error.transport_error != nil {
       let native: NetError = error.transport_error as NetError;
-      tls_test_assert(
+      AssertTrueMsg(
         native.kind == NetErrorKind.ConnectionReset
           && native.native_code == nyra_tls_test_reset_native_code(),
         "native transport category/code preserved"
@@ -303,11 +305,11 @@ func test_tls_stream_transport_failure_preserves_progress() {
     }
   }
 
-  tls_test_assert(
+  AssertTrueMsg(
     !stream.IsOpen() && stream.RetainedBytes() == 0,
     "failed send releases payload backing and native owners"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "peer retires after injected send failure");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "peer retires after injected send failure");
 }
 
 struct TlsStreamTestCounter {
@@ -316,22 +318,22 @@ struct TlsStreamTestCounter {
 
 @test(tag = "tls_engine")
 func test_tls_stream_close_callback_observes_terminal_state() {
-  var stream: TlsStream = tls_stream_test_new(1, 0);
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.HandshakeAsync(tls_stream_test_options())
+  var stream: TlsStream = TlsStream.TestNew(1, 0);
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.HandshakeAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_test_assert(stream.Poll(0).IsOk(), "handshake starts");
+  AssertTrueMsg(stream.Poll(0).IsOk(), "handshake starts");
   let pointer: *mut TlsStream = &mut stream;
   let counter: arc<TlsStreamTestCounter> = new arc<TlsStreamTestCounter>{};
   future.RegisterContinuation(
     lambda[copy pointer, copy counter]() -> void {
       unsafe {
-        tls_test_assert(
+        AssertTrueMsg(
           ! (*pointer).IsOpen() && (*pointer).PendingCount() == 0 && (*pointer).RetainedBytes() == 0,
           "Close callbacks see detached state"
         );
         (*pointer).Close();
-        tls_test_assert((*pointer).Poll(0).IsOk(), "Close callback may reenter Poll");
+        AssertTrueMsg((*pointer).Poll(0).IsOk(), "Close callback may reenter Poll");
       }
 
       var value: arc<TlsStreamTestCounter> = counter;
@@ -339,31 +341,31 @@ func test_tls_stream_close_callback_observes_terminal_state() {
     }
   );
   stream.Close();
-  tls_test_assert(future.is_completed && counter.hits == 1, "pending operation completes exactly once");
-  tls_test_assert(nyra_tls_test_server_join() == 0, "closed peer retires");
+  AssertTrueMsg(future.is_completed && counter.hits == 1, "pending operation completes exactly once");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "closed peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_poll_callback_can_enqueue_and_close() {
-  var stream: TlsStream = tls_stream_test_new(3, 0);
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.HandshakeAsync(tls_stream_test_options())
+  var stream: TlsStream = TlsStream.TestNew(3, 0);
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.HandshakeAsync(NetOperationOptions.TlsTestDefault())
   );
   let pointer: *mut TlsStream = &mut stream;
   let counter: arc<TlsStreamTestCounter> = new arc<TlsStreamTestCounter>{};
   future.RegisterContinuation(
     lambda[copy pointer, copy counter]() -> void {
       unsafe {
-        tls_test_assert((*pointer).PendingCount() == 0, "successful callback sees idle stream");
+        AssertTrueMsg((*pointer).PendingCount() == 0, "successful callback sees idle stream");
         let pending: Result<AsyncFuture<TlsTransfer>, TlsStreamError> = (*pointer).ReadAsync(
           1,
-          tls_stream_test_options()
+          NetOperationOptions.TlsTestDefault()
         );
-        tls_test_assert(pending.IsOk(), "successful callback may enqueue another operation");
-        tls_test_assert((*pointer).Poll(0).IsOk(), "successful callback may drive that operation");
+        AssertTrueMsg(pending.IsOk(), "successful callback may enqueue another operation");
+        AssertTrueMsg((*pointer).Poll(0).IsOk(), "successful callback may drive that operation");
         (*pointer).Close();
         if pending.IsOk() {
-          tls_test_assert(
+          AssertTrueMsg(
             ((pending.get_if<AsyncFuture<TlsTransfer>>()) as AsyncFuture<TlsTransfer>).is_completed,
             "callback Close retires reentered work"
           );
@@ -374,67 +376,68 @@ func test_tls_stream_poll_callback_can_enqueue_and_close() {
       value.hits = value.hits + 1;
     }
   );
-  let result: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_test_assert(
+  let result: TlsTransfer = (stream).TestPump(future);
+  AssertTrueMsg(
     result.error == nil && counter.hits == 1 && !stream.IsOpen(),
     "outer Poll preserves callback state changes"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "reentered peer retires");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "reentered peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_truncation_after_plaintext_prefix() {
-  var stream: TlsStream = tls_stream_test_new(2, 0);
-  tls_stream_test_handshake(stream);
-  let read: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+  var stream: TlsStream = TlsStream.TestNew(2, 0);
+  (stream).TestHandshake();
+  let read: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
     16,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let prefix: TlsTransfer = tls_stream_test_pump(stream, read);
-  tls_test_assert(
+  let prefix: TlsTransfer = (stream).TestPump(read);
+  AssertTrueMsg(
     prefix.error == nil && prefix.bytes_transferred == (6 as intptr),
     "plaintext prefix precedes unexpected EOF"
   );
   let bytes: NetBytes = prefix.buffer.Bytes();
-  tls_test_assert(
+  AssertTrueMsg(
     string.ViewFrom(bytes.Data() as *const int8, bytes.Len() as int32).Equal("prefix"),
     "received prefix remains owned after retirement"
   );
-  let tail: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+  let tail: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
     16,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let result: TlsTransfer = tls_stream_test_pump(stream, tail);
-  tls_stream_test_tls_error(result, TlsErrorKind.UnexpectedEof);
-  tls_test_assert(!result.eof && !stream.IsOpen(), "raw FIN is never authenticated EOF");
-  tls_test_assert(nyra_tls_test_server_join() == 0, "truncated peer retires");
+  let result: TlsTransfer = (stream).TestPump(tail);
+  (result).TestTlsError(TlsErrorKind.UnexpectedEof);
+  AssertTrueMsg(!result.eof && !stream.IsOpen(), "raw FIN is never authenticated EOF");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "truncated peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_verification_failure_is_terminal() {
-  var connection: TcpConnection = tls_stream_test_connection(5, 0);
-  var config: TlsClientConfig = tls_test_config();
+  var connection: TcpConnection = TcpConnection.TlsTestDial(5, 0);
+  var config: TlsClientConfig = TlsClientConfig.TestDefault();
   config.peer_name = "wrong.example";
   var made: Result<TlsStream, TlsStreamError> = TlsStream.NewClient(connection, config);
   var stream: TlsStream = move((made.get_if<TlsStream>()) as TlsStream);
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.HandshakeAsync(tls_stream_test_options())
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.HandshakeAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_stream_test_tls_error(tls_stream_test_pump(stream, future), TlsErrorKind.PeerNameMismatch);
-  tls_test_assert(
-    !stream.IsOpen() && stream.ReadAsync(1, tls_stream_test_options()).IsErr(),
+  ((stream).TestPump(future)).TestTlsError(TlsErrorKind.PeerNameMismatch);
+  AssertTrueMsg(
+    !stream.IsOpen() && stream.ReadAsync(1, NetOperationOptions.TlsTestDefault()).IsErr(),
     "failed verification never admits plaintext I/O"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "verification-rejected peer retires");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "verification-rejected peer retires");
 }
 
+// nyra-lint-allow: prefer-type-owned-functions -- Return scope tests final TLS/socket owner release.
 func tls_stream_test_drop_round() -> void {
-  var stream: TlsStream = tls_stream_test_new(1, 0);
-  let ignored: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.HandshakeAsync(tls_stream_test_options())
+  var stream: TlsStream = TlsStream.TestNew(1, 0);
+  let ignored: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.HandshakeAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_test_assert(stream.Poll(0).IsOk(), "drop test registers native work");
-  tls_test_assert(
+  AssertTrueMsg(stream.Poll(0).IsOk(), "drop test registers native work");
+  AssertTrueMsg(
     !ignored.is_completed && stream.PendingCount() == 1,
     "operation remains pending before owner drop"
   );
@@ -445,14 +448,14 @@ func test_tls_stream_drop_and_descriptor_recovery() {
   // Prime one-time OS/provider initialization before measuring exact recovery.
   // Windows retains NLS, socket-provider and OpenSSL process resources on first use.
   tls_stream_test_drop_round();
-  tls_test_assert(nyra_tls_test_server_join() == 0, "resource baseline warmup peer joins");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "resource baseline warmup peer joins");
   let baseline: int32 = nyra_tls_test_fd_count();
-  tls_test_assert(baseline >= 0, "resource baseline probe succeeds");
+  AssertTrueMsg(baseline >= 0, "resource baseline probe succeeds");
   var i: int32 = 0;
   while i < 64 {
     tls_stream_test_drop_round();
-    tls_test_assert(nyra_tls_test_server_join() == 0, "abandoned peer joins");
-    tls_test_assert(nyra_tls_test_fd_count() == baseline, "stream drop restores descriptor baseline");
+    AssertTrueMsg(nyra_tls_test_server_join() == 0, "abandoned peer joins");
+    AssertTrueMsg(nyra_tls_test_fd_count() == baseline, "stream drop restores descriptor baseline");
     i = i + 1;
   }
 }
@@ -461,81 +464,81 @@ func test_tls_stream_drop_and_descriptor_recovery() {
 
 @test(tag = "tls_engine")
 func test_tls_stream_cancel_preserves_plaintext_prefix() {
-  var stream: TlsStream = tls_stream_test_new(3, 0);
-  tls_stream_test_handshake(stream);
+  var stream: TlsStream = TlsStream.TestNew(3, 0);
+  (stream).TestHandshake();
   nyra_tls_test_write_controls(317, 5, -1);
   let token: NetCancellation = NetCancellation.New();
   let options: NetOperationOptions = NetOperationOptions{
-    deadline: NetDeadline.After(NetClock.NowNanoseconds(), 10000000000u64),
+    deadline: NetDeadline.After(Instant.Now().ToDurationSinceEpochish().ToNanoseconds(), 10000000000u64),
     cancellation: token
   };
-  let payload: NetBuffer = tls_stream_test_payload(200000);
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.WriteAllAsync(payload, options));
+  let payload: NetBuffer = NetBuffer.TlsTestPattern(200000);
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.WriteAllAsync(payload, options));
   var rounds: int32 = 0;
   while nyra_tls_test_written_bytes() < 20000 && !future.is_completed && rounds < 5000 {
-    tls_test_assert(stream.Poll(0).IsOk(), "write advances a committed prefix");
+    AssertTrueMsg(stream.Poll(0).IsOk(), "write advances a committed prefix");
     rounds = rounds + 1;
   }
 
-  tls_test_assert(
+  AssertTrueMsg(
     nyra_tls_test_written_bytes() >= 20000 && !future.is_completed,
     "cancel occurs during a partial later TLS record"
   );
   token.Cancel();
-  let result: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_stream_test_tls_error(result, TlsErrorKind.Cancelled);
-  tls_test_assert(
+  let result: TlsTransfer = (stream).TestPump(future);
+  (result).TestTlsError(TlsErrorKind.Cancelled);
+  AssertTrueMsg(
     result.bytes_transferred > 0 && result.bytes_transferred < payload.Len(),
     "cancel preserves already TLS-accepted plaintext progress"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     !stream.IsOpen() && stream.RetainedBytes() == 0 && stream.PendingCount() == 0,
     "cancel releases retained input and partial ciphertext"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "peer retires after partial-write cancellation");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "peer retires after partial-write cancellation");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_read_deadline() {
-  var stream: TlsStream = tls_stream_test_new(3, 0);
-  tls_stream_test_handshake(stream);
+  var stream: TlsStream = TlsStream.TestNew(3, 0);
+  (stream).TestHandshake();
   let options: NetOperationOptions = NetOperationOptions{deadline: NetDeadline.After(
-    NetClock.NowNanoseconds(),
+    Instant.Now().ToDurationSinceEpochish().ToNanoseconds(),
     20000000u64
   )};
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(8, options));
-  tls_stream_test_tls_error(tls_stream_test_pump(stream, future), TlsErrorKind.TimedOut);
-  tls_test_assert(
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(8, options));
+  ((stream).TestPump(future)).TestTlsError(TlsErrorKind.TimedOut);
+  AssertTrueMsg(
     !stream.IsOpen() && stream.PendingCount() == 0 && stream.RetainedBytes() == 0,
     "read timeout retires its native wait and payload reservation"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "read-timeout peer retires");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "read-timeout peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_shutdown_deadline() {
-  var stream: TlsStream = tls_stream_test_new(3, 0);
-  tls_stream_test_handshake(stream);
+  var stream: TlsStream = TlsStream.TestNew(3, 0);
+  (stream).TestHandshake();
   let options: NetOperationOptions = NetOperationOptions{deadline: NetDeadline.After(
-    NetClock.NowNanoseconds(),
+    Instant.Now().ToDurationSinceEpochish().ToNanoseconds(),
     20000000u64
   )};
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ShutdownAsync(options));
-  let result: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_stream_test_tls_error(result, TlsErrorKind.TimedOut);
-  tls_test_assert(
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ShutdownAsync(options));
+  let result: TlsTransfer = (stream).TestPump(future);
+  (result).TestTlsError(TlsErrorKind.TimedOut);
+  AssertTrueMsg(
     !result.eof && !stream.IsOpen() && stream.PendingCount() == 0,
     "sending close_notify does not turn an unacknowledged shutdown into success"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "shutdown-timeout peer retires");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "shutdown-timeout peer retires");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_admission_controls_and_empty_io() {
-  var connection: TcpConnection = tls_stream_test_connection(3, 0);
+  var connection: TcpConnection = TcpConnection.TlsTestDial(3, 0);
   var made: Result<TlsStream, TlsStreamError> = TlsStream.NewClientWithLimit(
     connection,
-    tls_test_config(),
+    TlsClientConfig.TestDefault(),
     0 as intptr
   );
   var stream: TlsStream = move((made.get_if<TlsStream>()) as TlsStream);
@@ -543,74 +546,76 @@ func test_tls_stream_admission_controls_and_empty_io() {
   token.Cancel();
   let expired: NetOperationOptions = NetOperationOptions{deadline: NetDeadline.At(0u64), cancellation: token};
   let rejected: Result<AsyncFuture<TlsTransfer>, TlsStreamError> = stream.HandshakeAsync(expired);
-  tls_test_assert(
+  AssertTrueMsg(
     rejected.IsErr() && stream.IsOpen() && stream.PendingCount() == 0,
     "pre-admission controls preserve the idle owner"
   );
   if rejected.IsErr() {
     let error: TlsStreamError = (rejected.get_if<TlsStreamError>()) as TlsStreamError;
-    tls_test_assert(error.tls_error != nil, "pre-admission cancellation is a named TLS control failure");
+    AssertTrueMsg(error.tls_error != nil, "pre-admission cancellation is a named TLS control failure");
     if error.tls_error != nil {
-      tls_test_assert(
+      AssertTrueMsg(
         (error.tls_error as TlsError).kind == TlsErrorKind.Cancelled,
         "cancellation precedes already-expired deadline at admission"
       );
     }
   }
 
-  tls_test_assert(
-    stream.ReadAsync(0, tls_stream_test_options()).IsErr(),
+  AssertTrueMsg(
+    stream.ReadAsync(0, NetOperationOptions.TlsTestDefault()).IsErr(),
     "plaintext API requires verified handshake even for empty reads"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     stream.Poll(-2).IsErr() && stream.Poll(0).IsOk(),
     "invalid wait rejected and idle Poll remains usable"
   );
-  tls_stream_test_handshake(stream);
-  let read: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(0, tls_stream_test_options()));
-  let empty_read: TlsTransfer = tls_stream_test_pump(stream, read);
-  tls_test_assert(
+  (stream).TestHandshake();
+  let read: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(0,
+    NetOperationOptions.TlsTestDefault()));
+  let empty_read: TlsTransfer = (stream).TestPump(read);
+  AssertTrueMsg(
     empty_read.error == nil && !empty_read.eof && empty_read.buffer.Len() == 0,
     "empty read is not EOF"
   );
-  let write: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.WriteAllAsync(
+  let write: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.WriteAllAsync(
     NetBuffer{},
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let empty_write: TlsTransfer = tls_stream_test_pump(stream, write);
-  tls_test_assert(
+  let empty_write: TlsTransfer = (stream).TestPump(write);
+  AssertTrueMsg(
     empty_write.error == nil && empty_write.bytes_transferred == 0,
     "empty write fits a zero-byte payload budget"
   );
-  tls_test_assert(
-    stream.ReadAsync(1, tls_stream_test_options()).IsErr(),
+  AssertTrueMsg(
+    stream.ReadAsync(1, NetOperationOptions.TlsTestDefault()).IsErr(),
     "nonempty read exceeds zero-byte budget"
   );
   stream.Close();
-  tls_test_assert(nyra_tls_test_server_join() == 0, "zero-payload peer retires");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "zero-payload peer retires");
 }
 
+// nyra-lint-allow: prefer-type-owned-functions -- Return drops a Future without canceling the operation.
 func tls_stream_test_drop_future(stream: ref mut TlsStream) -> void {
-  let dropped: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.HandshakeAsync(tls_stream_test_options())
+  let dropped: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.HandshakeAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_test_assert(!dropped.is_completed, "new operation waits for explicit Poll");
+  AssertTrueMsg(!dropped.is_completed, "new operation waits for explicit Poll");
 }
 
 @test(tag = "tls_engine")
 func test_tls_stream_future_drop_does_not_cancel() {
-  var stream: TlsStream = tls_stream_test_new(1, 0);
+  var stream: TlsStream = TlsStream.TestNew(1, 0);
   tls_stream_test_drop_future(stream);
-  tls_test_assert(
+  AssertTrueMsg(
     stream.PendingCount() == 1 && stream.IsOpen(),
     "stream owns the pending operation after Future drop"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     stream.Poll(0).IsOk() && stream.PendingCount() == 1,
     "dropped Future does not stop protocol progress"
   );
   stream.Close();
-  tls_test_assert(nyra_tls_test_server_join() == 0, "unobserved operation retires on stream Close");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "unobserved operation retires on stream Close");
 }
 
 @extern("C") func nyra_tls_test_arm_tamper() -> void;
@@ -620,45 +625,45 @@ func test_tls_stream_future_drop_does_not_cancel() {
 @test(tag = "tls_engine")
 // Post-handshake key updates must preserve both application directions across epoch changes.
 func test_tls_stream_key_update_preserves_bidirectional_traffic() {
-  var stream: TlsStream = tls_stream_test_new(6, 65536);
-  tls_stream_test_handshake(stream);
-  let notice_future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+  var stream: TlsStream = TlsStream.TestNew(6, 65536);
+  (stream).TestHandshake();
+  let notice_future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
     32,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let notice: TlsTransfer = tls_stream_test_pump(stream, notice_future);
-  tls_test_assert(
+  let notice: TlsTransfer = (stream).TestPump(notice_future);
+  AssertTrueMsg(
     notice.error == nil && !notice.eof && notice.bytes_transferred == (10 as intptr),
     "KeyUpdate remains protocol traffic rather than plaintext"
   );
   let notice_bytes: NetBytes = notice.buffer.Bytes();
-  tls_test_assert(
+  AssertTrueMsg(
     string.ViewFrom(notice_bytes.Data() as *const int8, notice_bytes.Len() as int32).Equal("key-update"),
     "application bytes survive the peer's new sending key"
   );
   nyra_tls_test_write_controls(317, 5, -1);
-  let payload: NetBuffer = tls_stream_test_payload(65536);
-  let sent: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.WriteAllAsync(
+  let payload: NetBuffer = NetBuffer.TlsTestPattern(65536);
+  let sent: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.WriteAllAsync(
     payload,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let written: TlsTransfer = tls_stream_test_pump(stream, sent);
-  tls_test_assert(
+  let written: TlsTransfer = (stream).TestPump(sent);
+  AssertTrueMsg(
     written.error == nil && written.bytes_transferred == (65536 as intptr),
     "requested local key update preserves partial-write progress"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     nyra_tls_test_partial_writes() > 0 && nyra_tls_test_write_stalls() > 0,
     "updated-key traffic exercises short sends and WouldBlock"
   );
   var total: int32 = 0;
   while total < 65536 {
-    let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+    let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
       4096,
-      tls_stream_test_options()
+      NetOperationOptions.TlsTestDefault()
     ));
-    let read: TlsTransfer = tls_stream_test_pump(stream, future);
-    tls_test_assert(
+    let read: TlsTransfer = (stream).TestPump(future);
+    AssertTrueMsg(
       read.error == nil && !read.eof && read.bytes_transferred > 0,
       "updated-key echo produces authenticated plaintext"
     );
@@ -670,7 +675,7 @@ func test_tls_stream_key_update_preserves_bidirectional_traffic() {
     var i: int32 = 0;
     unsafe {
       while i < bytes.Len() as int32 {
-        tls_test_assert(
+        AssertTrueMsg(
           bytes.Data()[i] == ((total + i) % 251) as uint8,
           "key updates neither lose nor duplicate application bytes"
         );
@@ -681,18 +686,19 @@ func test_tls_stream_key_update_preserves_bidirectional_traffic() {
     total = total + bytes.Len() as int32;
   }
 
-  tls_test_assert(total == 65536, "entire updated-key echo is delivered");
-  let end: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(1, tls_stream_test_options()));
-  let eof: TlsTransfer = tls_stream_test_pump(stream, end);
-  tls_test_assert(eof.error == nil && eof.eof, "peer close_notify remains authenticated after key updates");
-  let shutdown: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    stream.ShutdownAsync(tls_stream_test_options())
+  AssertTrueMsg(total == 65536, "entire updated-key echo is delivered");
+  let end: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(1,
+    NetOperationOptions.TlsTestDefault()));
+  let eof: TlsTransfer = (stream).TestPump(end);
+  AssertTrueMsg(eof.error == nil && eof.eof, "peer close_notify remains authenticated after key updates");
+  let shutdown: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    stream.ShutdownAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_test_assert(
-    tls_stream_test_pump(stream, shutdown).error == nil,
+  AssertTrueMsg(
+    (stream).TestPump(shutdown).error == nil,
     "updated-key connection shuts down in both directions"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     nyra_tls_test_server_join() == 0,
     "peer verifies exactly one non-requesting KeyUpdate response and all plaintext"
   );
@@ -701,59 +707,59 @@ func test_tls_stream_key_update_preserves_bidirectional_traffic() {
 @test(tag = "tls_engine")
 // Unauthenticated record bytes must not escape as successful application plaintext.
 func test_tls_stream_tampered_record_retires_without_plaintext() {
-  var stream: TlsStream = tls_stream_test_new(7, 0);
-  tls_stream_test_handshake(stream);
+  var stream: TlsStream = TlsStream.TestNew(7, 0);
+  (stream).TestHandshake();
   nyra_tls_test_arm_tamper();
-  let future: AsyncFuture<TlsTransfer> = tls_stream_test_future(stream.ReadAsync(
+  let future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(stream.ReadAsync(
     32,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let rejected: TlsTransfer = tls_stream_test_pump(stream, future);
-  tls_stream_test_tls_error(rejected, TlsErrorKind.Protocol);
-  tls_test_assert(
+  let rejected: TlsTransfer = (stream).TestPump(future);
+  (rejected).TestTlsError(TlsErrorKind.Protocol);
+  AssertTrueMsg(
     nyra_tls_test_tampered_reads() == 1,
     "fixture alters encrypted payload after preserving its TLS record header"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     rejected.bytes_transferred == 0 && rejected.buffer.Len() == 0 && !rejected.eof,
     "forged bytes are neither plaintext nor authenticated EOF"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     !stream.IsOpen() && stream.PendingCount() == 0 && stream.RetainedBytes() == 0,
     "protocol failure retires TCP, waits and retained buffers"
   );
-  tls_test_assert(
-    stream.ReadAsync(1, tls_stream_test_options()).IsErr() && stream.WriteAllAsync(
+  AssertTrueMsg(
+    stream.ReadAsync(1, NetOperationOptions.TlsTestDefault()).IsErr() && stream.WriteAllAsync(
       NetBuffer{},
-      tls_stream_test_options()
+      NetOperationOptions.TlsTestDefault()
     ).IsErr(),
     "failed connection cannot resume plaintext operations"
   );
-  tls_test_assert(
-    stream.ShutdownAsync(tls_stream_test_options()).IsErr(),
+  AssertTrueMsg(
+    stream.ShutdownAsync(NetOperationOptions.TlsTestDefault()).IsErr(),
     "fatal protocol failure cannot become orderly shutdown"
   );
-  tls_test_assert(
+  AssertTrueMsg(
     nyra_tls_test_server_join() == 0,
     "tampered-record peer remains connected until error classification"
   );
-  var healthy: TlsStream = tls_stream_test_new(0, 0);
-  tls_stream_test_handshake(healthy);
-  let close_future: AsyncFuture<TlsTransfer> = tls_stream_test_future(healthy.ReadAsync(
+  var healthy: TlsStream = TlsStream.TestNew(0, 0);
+  (healthy).TestHandshake();
+  let close_future: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(healthy.ReadAsync(
     1,
-    tls_stream_test_options()
+    NetOperationOptions.TlsTestDefault()
   ));
-  let close: TlsTransfer = tls_stream_test_pump(healthy, close_future);
-  tls_test_assert(
+  let close: TlsTransfer = (healthy).TestPump(close_future);
+  AssertTrueMsg(
     close.error == nil && close.eof,
     "prior record failure does not poison a fresh verified connection"
   );
-  let shutdown: AsyncFuture<TlsTransfer> = tls_stream_test_future(
-    healthy.ShutdownAsync(tls_stream_test_options())
+  let shutdown: AsyncFuture<TlsTransfer> = AsyncFuture<TlsTransfer>.TlsTestAdmit(
+    healthy.ShutdownAsync(NetOperationOptions.TlsTestDefault())
   );
-  tls_test_assert(
-    tls_stream_test_pump(healthy, shutdown).error == nil,
+  AssertTrueMsg(
+    (healthy).TestPump(shutdown).error == nil,
     "fresh connection retains orderly shutdown"
   );
-  tls_test_assert(nyra_tls_test_server_join() == 0, "fresh healthy peer observes close_notify");
+  AssertTrueMsg(nyra_tls_test_server_join() == 0, "fresh healthy peer observes close_notify");
 }

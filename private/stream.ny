@@ -61,61 +61,59 @@ pub struct TlsStream {
   cell: arc<TlsStreamState>?;
 }
 
-func tls_stream_error(kind: TlsErrorKind) -> TlsStreamError {
+static method(TlsStreamError) FromTlsKind(kind: TlsErrorKind) -> TlsStreamError {
   return TlsStreamError{tls_error: TlsError{kind: kind}};
 }
 
-func tls_stream_transport_error(error: ref NetError) -> TlsStreamError {
+static method(TlsStreamError) FromTransport(error: ref NetError) -> TlsStreamError {
   if error.kind == NetErrorKind.Cancelled {
-    return tls_stream_error(TlsErrorKind.Cancelled);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Cancelled);
   }
 
   if error.kind == NetErrorKind.TimedOut {
-    return tls_stream_error(TlsErrorKind.TimedOut);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.TimedOut);
   }
 
   return TlsStreamError{transport_error: error};
 }
 
 // Retire transport and provider state together before publishing a terminal operation result.
-func tls_stream_retire(cell: arc<TlsStreamState>) -> void {
-  var state: arc<TlsStreamState> = cell;
-  state.closed = true;
-  state.driver.Close();
-  state.connection.Close();
-  state.session.Close();
-  state.incoming_start = 0 as intptr;
-  state.incoming_count = 0 as intptr;
-  state.outgoing_start = 0 as intptr;
-  state.outgoing_count = 0 as intptr;
+method(TlsStreamState) Retire() -> void {
+  self.closed = true;
+  self.driver.Close();
+  self.connection.Close();
+  self.session.Close();
+  self.incoming_start = 0ip;
+  self.incoming_count = 0ip;
+  self.outgoing_start = 0ip;
+  self.outgoing_count = 0ip;
 }
 
 // Detach the current operation before completing its promise so reentrant callbacks observe the retired operation.
-func tls_stream_finish(cell: arc<TlsStreamState>, error: TlsStreamError?, retire: bool) -> int32 {
-  var state: arc<TlsStreamState> = cell;
-  let active: bool = state.operation != TlsStreamOperation.Idle;
-  var promise: AsyncPromise<TlsTransfer> = state.promise;
+method(TlsStreamState) Finish(error: TlsStreamError?, retire: bool) -> int32 {
+  let active: bool = self.operation != TlsStreamOperation.Idle;
+  var promise: AsyncPromise<TlsTransfer> = self.promise;
   let value: TlsTransfer = TlsTransfer{
-    bytes_transferred: state.progress,
-    buffer: state.result_buffer,
-    eof: state.operation_eof,
+    bytes_transferred: self.progress,
+    buffer: self.result_buffer,
+    eof: self.operation_eof,
     error: error
   };
   if retire {
-    tls_stream_retire(state);
+    self.Retire();
   }
 
-  state.operation = TlsStreamOperation.Idle;
-  state.wait = nil;
-  state.input = NetBuffer{};
-  state.result_buffer = NetBuffer{};
-  state.retained = 0 as intptr;
-  state.progress = 0 as intptr;
-  state.operation_done = false;
-  state.operation_eof = false;
-  state.promise = AsyncPromise<TlsTransfer>{};
-  state.options = NetOperationOptions{};
-  state.driving = false;
+  self.operation = TlsStreamOperation.Idle;
+  self.wait = nil;
+  self.input = NetBuffer{};
+  self.result_buffer = NetBuffer{};
+  self.retained = 0ip;
+  self.progress = 0ip;
+  self.operation_done = false;
+  self.operation_eof = false;
+  self.promise = AsyncPromise<TlsTransfer>{};
+  self.options = NetOperationOptions{};
+  self.driving = false;
   // No state mutation follows publication: continuations may Close, move, enqueue or Poll.
   if active {
     promise.Complete(value);
@@ -126,82 +124,78 @@ func tls_stream_finish(cell: arc<TlsStreamState>, error: TlsStreamError?, retire
   return 0;
 }
 
-func tls_stream_fail(cell: arc<TlsStreamState>, error: ref TlsStreamError) -> int32 {
-  return tls_stream_finish(cell, error, true);
+method(TlsStreamState) Fail(error: ref TlsStreamError) -> int32 {
+  return self.Finish(error, true);
 }
 
-func tls_stream_control(cell: arc<TlsStreamState>) -> TlsStreamError? {
-  var state: arc<TlsStreamState> = cell;
-  let checked: Result<Unit, NetError> = state.options.Check(NetClock.NowNanoseconds());
+method(TlsStreamState) ControlError() -> TlsStreamError? {
+  let checked: Result<Unit, NetError> = self.options.CheckNow();
   let error: NetError? = checked.get_if<NetError>();
   if error != nil {
-    return tls_stream_transport_error(error as NetError);
+    return TlsStreamError.FromTransport(error as NetError);
   }
 
   return nil;
 }
 
-func tls_stream_register(cell: arc<TlsStreamState>, writable: bool) -> TlsStreamError? {
-  var state: arc<TlsStreamState> = cell;
+method(TlsStreamState) RegisterReadiness(writable: bool) -> TlsStreamError? {
   var queued: Result<AsyncFuture<Result<Unit, NetError>>, NetError> = NetError{kind: NetErrorKind.System};
   if writable {
-    queued = state.connection.WhenWritable(state.driver, state.options);
+    queued = self.connection.WhenWritable(self.driver, self.options);
   } else {
-    queued = state.connection.WhenReadable(state.driver, state.options);
+    queued = self.connection.WhenReadable(self.driver, self.options);
   }
 
   let error: NetError? = queued.get_if<NetError>();
   if error != nil {
-    return tls_stream_transport_error(error as NetError);
+    return TlsStreamError.FromTransport(error as NetError);
   }
 
-  state.wait = (queued.get_if<AsyncFuture<Result<Unit, NetError>>>()) as AsyncFuture<Result<Unit, NetError>>;
+  self.wait = (queued.get_if<AsyncFuture<Result<Unit, NetError>>>()) as AsyncFuture<Result<Unit, NetError>>;
 
   return nil;
 }
 
 // Check shared session state and original controls before reserving storage for a new operation.
-func tls_stream_admit(
-  cell: arc<TlsStreamState>,
+method(TlsStreamState) Admit(
   operation: TlsStreamOperation,
   options: ref NetOperationOptions,
   cost: intptr
 ) -> Result<AsyncFuture<TlsTransfer>, TlsStreamError> {
-  var state: arc<TlsStreamState> = cell;
-  if state.closed {
-    return tls_stream_error(TlsErrorKind.Closed);
+  if self.closed {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
-  if state.driving || state.operation != TlsStreamOperation.Idle {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+  if self.driving || self.operation != TlsStreamOperation.Idle {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
-  if operation != TlsStreamOperation.Handshake && !state.handshaken {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+  if operation != TlsStreamOperation.Handshake && !self.handshaken {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
-  if operation == TlsStreamOperation.Write && state.peer_closed {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+  if operation == TlsStreamOperation.Write && self.peer_closed {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
-  if cost > state.maximum {
-    return tls_stream_error(TlsErrorKind.ResourceExhausted);
+  if cost > self.maximum {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.ResourceExhausted);
   }
 
-  let checked: Result<Unit, NetError> = options.Check(NetClock.NowNanoseconds());
+  let checked: Result<Unit, NetError> = options.CheckNow();
   let failure: NetError? = checked.get_if<NetError>();
   if failure != nil {
-    return tls_stream_transport_error(failure as NetError);
+    return TlsStreamError.FromTransport(failure as NetError);
   }
 
   var promise: AsyncPromise<TlsTransfer> = AsyncPromise<TlsTransfer>.New();
-  state.promise = promise;
-  state.operation = operation;
-  state.options = options;
-  state.retained = cost;
-  state.progress = 0 as intptr;
-  state.operation_done = false;
-  state.operation_eof = false;
+  self.promise = promise;
+  self.operation = operation;
+  self.options = options;
+  self.retained = cost;
+  self.progress = 0ip;
+  self.operation_done = false;
+  self.operation_eof = false;
 
   return promise.FutureHandle();
 }
@@ -234,7 +228,7 @@ pub static method(TlsStream) NewClient(
   connection: ref mut TcpConnection,
   config: ref TlsClientConfig
 ) -> Result<TlsStream, TlsStreamError> {
-  return TlsStream.NewClientWithLimit(connection, config, 1048576 as intptr);
+  return TlsStream.NewClientWithLimit(connection, config, 1048576ip);
 }
 
 /**
@@ -252,12 +246,12 @@ pub static method(TlsStream) NewClientWithLimit(
   config: ref TlsClientConfig,
   max_retained_bytes: intptr
 ) -> Result<TlsStream, TlsStreamError> {
-  if max_retained_bytes <(0 as intptr) {
-    return tls_stream_error(TlsErrorKind.InvalidArgument);
+  if max_retained_bytes <(0ip) {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidArgument);
   }
 
   if !connection.IsOpen() {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var made: Result<TlsSession, TlsError> = TlsSession.NewClient(config);
@@ -269,7 +263,7 @@ pub static method(TlsStream) NewClientWithLimit(
   var driver_result: Result<NetEventLoop, NetError> = NetEventLoop.New(1);
   let driver_error: NetError? = driver_result.get_if<NetError>();
   if driver_error != nil {
-    return tls_stream_transport_error(driver_error as NetError);
+    return TlsStreamError.FromTransport(driver_error as NetError);
   }
 
   let state: arc<TlsStreamState> = new arc<TlsStreamState>{
@@ -292,15 +286,12 @@ pub method(TlsStream) HandshakeAsync(
 ) -> Result<AsyncFuture<TlsTransfer>, TlsStreamError> {
   let optional: arc<TlsStreamState>? = self.cell;
   if optional == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
-  return tls_stream_admit(
-    optional as arc<TlsStreamState>,
-    TlsStreamOperation.Handshake,
+  return (optional as arc<TlsStreamState>).Admit(TlsStreamOperation.Handshake,
     options,
-    0 as intptr
-  );
+    0ip);
 }
 
 /**
@@ -315,21 +306,18 @@ pub method(TlsStream) ReadAsync(
   options: ref NetOperationOptions
 ) -> Result<AsyncFuture<TlsTransfer>, TlsStreamError> {
   if max_bytes < 0 || max_bytes > 16384 {
-    return tls_stream_error(TlsErrorKind.InvalidArgument);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidArgument);
   }
 
   let optional: arc<TlsStreamState>? = self.cell;
   if optional == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var state: arc<TlsStreamState> = optional as arc<TlsStreamState>;
-  let admitted: Result<AsyncFuture<TlsTransfer>, TlsStreamError> = tls_stream_admit(
-    state,
-    TlsStreamOperation.Read,
+  let admitted: Result<AsyncFuture<TlsTransfer>, TlsStreamError> = (state).Admit(TlsStreamOperation.Read,
     options,
-    max_bytes as intptr
-  );
+    max_bytes as intptr);
   if admitted.IsOk() {
     state.read_capacity = max_bytes;
   }
@@ -351,16 +339,13 @@ pub method(TlsStream) WriteAllAsync(
 ) -> Result<AsyncFuture<TlsTransfer>, TlsStreamError> {
   let optional: arc<TlsStreamState>? = self.cell;
   if optional == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var state: arc<TlsStreamState> = optional as arc<TlsStreamState>;
-  let admitted: Result<AsyncFuture<TlsTransfer>, TlsStreamError> = tls_stream_admit(
-    state,
-    TlsStreamOperation.Write,
+  let admitted: Result<AsyncFuture<TlsTransfer>, TlsStreamError> = (state).Admit(TlsStreamOperation.Write,
     options,
-    buffer.RetainedBytes()
-  );
+    buffer.RetainedBytes());
   if admitted.IsOk() {
     state.input = buffer;
   }
@@ -380,10 +365,10 @@ pub method(TlsStream) ShutdownAsync(
 ) -> Result<AsyncFuture<TlsTransfer>, TlsStreamError> {
   let optional: arc<TlsStreamState>? = self.cell;
   if optional == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
-  return tls_stream_admit(optional as arc<TlsStreamState>, TlsStreamOperation.Shutdown, options, 0 as intptr);
+  return (optional as arc<TlsStreamState>).Admit(TlsStreamOperation.Shutdown, options, 0ip);
 }
 
 /**
@@ -412,7 +397,7 @@ pub method(TlsStream) PendingCount() -> int32 {
 pub method(TlsStream) RetainedBytes() -> intptr {
   let optional: arc<TlsStreamState>? = self.cell;
   if optional == nil {
-    return 0 as intptr;
+    return 0ip;
   }
 
   let state: arc<TlsStreamState> = optional as arc<TlsStreamState>;
@@ -428,12 +413,12 @@ pub method(TlsStream) RetainedBytes() -> intptr {
 pub method(TlsStream) SelectedAlpn() -> Result<string, TlsStreamError> {
   let optional: arc<TlsStreamState>? = self.cell;
   if optional == nil {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   var state: arc<TlsStreamState> = optional as arc<TlsStreamState>;
   if state.closed {
-    return tls_stream_error(TlsErrorKind.Closed);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
   }
 
   let selected: Result<string, TlsError> = state.session.SelectedAlpn();
@@ -468,5 +453,5 @@ pub method(TlsStream) Close() -> void {
     return;
   }
 
-  tls_stream_finish(optional as arc<TlsStreamState>, tls_stream_error(TlsErrorKind.Closed), true);
+  (optional as arc<TlsStreamState>).Finish(TlsStreamError.FromTlsKind(TlsErrorKind.Closed), true);
 }

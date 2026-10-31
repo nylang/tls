@@ -1,13 +1,14 @@
 name: tls
-version: 0.2.0
+version: 0.3.0
 license: MIT
 dependencies:
   net_core:
     git: https://github.com/nylang/netcore.git
-    rev: e86cf3b732b97ef7198e8e461ecd550c65b2c8cb
+    rev: 8128b144a321a820358256ff79b2441f06a3d8ee
 directories:
   interface:
     - interface
   private:
     - private
     - tests
+analysis-options: lint.yaml

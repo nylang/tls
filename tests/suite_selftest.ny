@@ -8,6 +8,7 @@ part "stream_selftest.ny";
 part "stream_control_selftest.ny";
 part "channel_selftest.ny";
 import "stdlib:stdlib.ny";
+import "ntest:ntest.ny";
 import "net_core:net_core.ny";
 import "interface/tls.ni";
 import "interface/stream.ni";

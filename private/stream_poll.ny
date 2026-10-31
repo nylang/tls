@@ -6,44 +6,43 @@ part of TlsTransportDriver;
 /** @brief Bounded socket/protocol pumping with preserved ciphertext suffixes. */
 
 // Keep unsent ciphertext prefixes across short writes; retrying must not replay bytes already accepted by TCP.
-func tls_stream_flush(cell: arc<TlsStreamState>) -> Result<bool, TlsStreamError> {
-  var state: arc<TlsStreamState> = cell;
-  if state.outgoing_start == state.outgoing_count {
-    state.outgoing_start = 0 as intptr;
-    state.outgoing_count = 0 as intptr;
-    if state.session.PendingCiphertext() >(0 as intptr) {
+method(TlsStreamState) FlushOutput() -> Result<bool, TlsStreamError> {
+  if self.outgoing_start == self.outgoing_count {
+    self.outgoing_start = 0ip;
+    self.outgoing_count = 0ip;
+    if self.session.PendingCiphertext() >(0ip) {
       let writable: NetMutableBytes = (NetMutableBytes.FromRaw(
-        &mut state.outgoing[0],
-        16384 as intptr
+        &mut self.outgoing[0],
+        16384ip
       ).get_if<NetMutableBytes>()) as NetMutableBytes;
-      let drained: Result<intptr, TlsError> = state.session.DrainCiphertext(writable);
+      let drained: Result<intptr, TlsError> = self.session.DrainCiphertext(writable);
       let error: TlsError? = drained.get_if<TlsError>();
       if error != nil {
         return TlsStreamError{tls_error: error};
       }
 
-      state.outgoing_count = (drained.get_if<intptr>()) as intptr;
+      self.outgoing_count = (drained.get_if<intptr>()) as intptr;
     }
   }
 
-  if state.outgoing_start < state.outgoing_count {
+  if self.outgoing_start < self.outgoing_count {
     let bytes: NetBytes = (NetBytes.FromRaw(
-      &state.outgoing[0],
-      state.outgoing_count
+      &self.outgoing[0],
+      self.outgoing_count
     ).get_if<NetBytes>()) as NetBytes;
     let suffix: NetBytes = (bytes.Slice(
-      state.outgoing_start,
-      state.outgoing_count - state.outgoing_start
+      self.outgoing_start,
+      self.outgoing_count - self.outgoing_start
     ).get_if<NetBytes>()) as NetBytes;
-    let sent: Result<intptr, NetError> = state.connection.TryWrite(suffix);
+    let sent: Result<intptr, NetError> = self.connection.TryWrite(suffix);
     let failure: NetError? = sent.get_if<NetError>();
     if failure != nil {
       let error: NetError = failure as NetError;
       if error.kind != NetErrorKind.WouldBlock {
-        return tls_stream_transport_error(error);
+        return TlsStreamError.FromTransport(error);
       }
 
-      let registered: TlsStreamError? = tls_stream_register(state, true);
+      let registered: TlsStreamError? = self.RegisterReadiness(true);
       if registered != nil {
         return registered as TlsStreamError;
       }
@@ -52,82 +51,80 @@ func tls_stream_flush(cell: arc<TlsStreamState>) -> Result<bool, TlsStreamError>
     }
 
     let count: intptr = (sent.get_if<intptr>()) as intptr;
-    if count <= (0 as intptr) {
+    if count <= (0ip) {
       return TlsStreamError{transport_error: NetError{kind: NetErrorKind.Closed}};
     }
 
-    state.outgoing_start = state.outgoing_start + count;
+    self.outgoing_start = self.outgoing_start + count;
   }
 
-  return state.outgoing_start == state.outgoing_count && state.session.PendingCiphertext() == (0 as intptr);
+  return self.outgoing_start == self.outgoing_count && self.session.PendingCiphertext() == (0ip);
 }
 
-func tls_stream_feed(cell: arc<TlsStreamState>) -> TlsStreamError? {
-  var state: arc<TlsStreamState> = cell;
-  if state.incoming_start < state.incoming_count {
+method(TlsStreamState) FeedInput() -> TlsStreamError? {
+  if self.incoming_start < self.incoming_count {
     let bytes: NetBytes = (NetBytes.FromRaw(
-      &state.incoming[0],
-      state.incoming_count
+      &self.incoming[0],
+      self.incoming_count
     ).get_if<NetBytes>()) as NetBytes;
     let suffix: NetBytes = (bytes.Slice(
-      state.incoming_start,
-      state.incoming_count - state.incoming_start
+      self.incoming_start,
+      self.incoming_count - self.incoming_start
     ).get_if<NetBytes>()) as NetBytes;
-    let fed: Result<intptr, TlsError> = state.session.FeedCiphertext(suffix);
+    let fed: Result<intptr, TlsError> = self.session.FeedCiphertext(suffix);
     let error: TlsError? = fed.get_if<TlsError>();
     if error != nil {
       return TlsStreamError{tls_error: error};
     }
 
-    state.incoming_start = state.incoming_start + ((fed.get_if<intptr>()) as intptr);
+    self.incoming_start = self.incoming_start + ((fed.get_if<intptr>()) as intptr);
   }
 
-  if state.incoming_start == state.incoming_count {
-    state.incoming_start = 0 as intptr;
-    state.incoming_count = 0 as intptr;
-    if state.input_eof && !state.input_ended {
-      let ended: Result<Unit, TlsError> = state.session.EndInput();
+  if self.incoming_start == self.incoming_count {
+    self.incoming_start = 0ip;
+    self.incoming_count = 0ip;
+    if self.input_eof && !self.input_ended {
+      let ended: Result<Unit, TlsError> = self.session.EndInput();
       let error: TlsError? = ended.get_if<TlsError>();
       if error != nil {
         return TlsStreamError{tls_error: error};
       }
 
-      state.input_ended = true;
+      self.input_ended = true;
     }
   }
 
   return nil;
 }
 
-func tls_stream_protocol(cell: arc<TlsStreamState>) -> Result<TlsProgress, TlsError> {
-  var state: arc<TlsStreamState> = cell;
-  if state.operation == TlsStreamOperation.Handshake {
-    return state.session.HandshakeStep(state.options);
+method(TlsStreamState) StepProtocol() -> Result<TlsProgress, TlsError> {
+  if self.operation == TlsStreamOperation.Handshake {
+    return self.session.HandshakeStep(self.options);
   }
 
-  if state.operation == TlsStreamOperation.Shutdown {
-    return state.session.ShutdownStep(state.options);
+  if self.operation == TlsStreamOperation.Shutdown {
+    return self.session.ShutdownStep(self.options);
   }
 
-  if state.operation == TlsStreamOperation.Read {
+  if self.operation == TlsStreamOperation.Read {
     let buffer: NetMutableBytes = (NetMutableBytes.FromRaw(
-      &mut state.plaintext[0],
-      state.read_capacity as intptr
+      &mut self.plaintext[0],
+      self.read_capacity as intptr
     ).get_if<NetMutableBytes>()) as NetMutableBytes;
 
-    return state.session.ReadStep(buffer, state.options);
+    return self.session.ReadStep(buffer, self.options);
   }
 
-  let remaining: intptr = state.input.Len() - state.progress;
+  let remaining: intptr = self.input.Len() - self.progress;
   var size: intptr = remaining;
-  if size >(16384 as intptr) {
-    size = 16384 as intptr;
+  if size >(16384ip) {
+    size = 16384ip;
   }
 
-  let bytes: NetBytes = state.input.Bytes();
-  let chunk: NetBytes = (bytes.Slice(state.progress, size).get_if<NetBytes>()) as NetBytes;
+  let bytes: NetBytes = self.input.Bytes();
+  let chunk: NetBytes = (bytes.Slice(self.progress, size).get_if<NetBytes>()) as NetBytes;
 
-  return state.session.WriteStep(chunk, state.options);
+  return self.session.WriteStep(chunk, self.options);
 }
 
 /**
@@ -140,7 +137,7 @@ func tls_stream_protocol(cell: arc<TlsStreamState>) -> Result<TlsProgress, TlsEr
  */
 pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamError> {
   if maximum_wait_ms < -1 {
-    return tls_stream_error(TlsErrorKind.InvalidArgument);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidArgument);
   }
 
   let optional: arc<TlsStreamState>? = self.cell;
@@ -150,7 +147,7 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
 
   var state: arc<TlsStreamState> = optional as arc<TlsStreamState>;
   if state.driving {
-    return tls_stream_error(TlsErrorKind.InvalidState);
+    return TlsStreamError.FromTlsKind(TlsErrorKind.InvalidState);
   }
 
   if state.closed || state.operation == TlsStreamOperation.Idle {
@@ -161,9 +158,9 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
   var rounds: int32 = 0;
   while rounds < 8 {
     rounds = rounds + 1;
-    let control: TlsStreamError? = tls_stream_control(state);
+    let control: TlsStreamError? = (state).ControlError();
     if control != nil {
-      return tls_stream_fail(state, control as TlsStreamError);
+      return (state).Fail(control as TlsStreamError);
     }
 
     let pending: AsyncFuture<Result<Unit, NetError>>? = state.wait;
@@ -173,13 +170,13 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
         let polled: Result<int32, NetError> = state.driver.Poll(maximum_wait_ms);
         let poll_error: NetError? = polled.get_if<NetError>();
         // Controls precede a simultaneous native readiness/error result.
-        let after_wait: TlsStreamError? = tls_stream_control(state);
+        let after_wait: TlsStreamError? = (state).ControlError();
         if after_wait != nil {
-          return tls_stream_fail(state, after_wait as TlsStreamError);
+          return (state).Fail(after_wait as TlsStreamError);
         }
 
         if poll_error != nil {
-          return tls_stream_fail(state, tls_stream_transport_error(poll_error as NetError));
+          return (state).Fail(TlsStreamError.FromTransport(poll_error as NetError));
         }
 
         if !waiting.is_completed {
@@ -192,7 +189,7 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
       state.wait = nil;
       let completed: Result<Result<Unit, NetError>, AsyncError> = waiting.GetResult();
       if completed.IsErr() {
-        return tls_stream_fail(state, tls_stream_error(TlsErrorKind.Closed));
+        return (state).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.Closed));
       }
 
       let ready: Result<Unit, NetError> = (
@@ -200,20 +197,20 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
       ) as Result<Unit, NetError>;
       let ready_error: NetError? = ready.get_if<NetError>();
       if ready_error != nil {
-        return tls_stream_fail(state, tls_stream_transport_error(ready_error as NetError));
+        return (state).Fail(TlsStreamError.FromTransport(ready_error as NetError));
       }
     }
 
-    let flushed: Result<bool, TlsStreamError> = tls_stream_flush(state);
+    let flushed: Result<bool, TlsStreamError> = (state).FlushOutput();
     // Final socket progress must not publish success or an error ahead of controls.
-    let after_flush: TlsStreamError? = tls_stream_control(state);
+    let after_flush: TlsStreamError? = (state).ControlError();
     if after_flush != nil {
-      return tls_stream_fail(state, after_flush as TlsStreamError);
+      return (state).Fail(after_flush as TlsStreamError);
     }
 
     let flush_error: TlsStreamError? = flushed.get_if<TlsStreamError>();
     if flush_error != nil {
-      return tls_stream_fail(state, flush_error as TlsStreamError);
+      return (state).Fail(flush_error as TlsStreamError);
     }
 
     if ! ((flushed.get_if<bool>()) as bool) {
@@ -227,7 +224,7 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
     }
 
     if state.operation_done {
-      return tls_stream_finish(state, nil, state.operation == TlsStreamOperation.Shutdown);
+      return (state).Finish(nil, state.operation == TlsStreamOperation.Shutdown);
     }
 
     if state.operation == TlsStreamOperation.Write && state.progress == state.input.Len() {
@@ -241,20 +238,20 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
       continue;
     }
 
-    let feed_error: TlsStreamError? = tls_stream_feed(state);
+    let feed_error: TlsStreamError? = (state).FeedInput();
     if feed_error != nil {
-      return tls_stream_fail(state, feed_error as TlsStreamError);
+      return (state).Fail(feed_error as TlsStreamError);
     }
 
-    let stepped: Result<TlsProgress, TlsError> = tls_stream_protocol(state);
+    let stepped: Result<TlsProgress, TlsError> = (state).StepProtocol();
     let protocol_error: TlsError? = stepped.get_if<TlsError>();
     if protocol_error != nil {
-      return tls_stream_fail(state, TlsStreamError{tls_error: protocol_error});
+      return (state).Fail(TlsStreamError{tls_error: protocol_error});
     }
 
     let progress: TlsProgress = (stepped.get_if<TlsProgress>()) as TlsProgress;
     if progress.state == TlsStepState.PeerClosed && state.operation != TlsStreamOperation.Read {
-      return tls_stream_fail(state, tls_stream_error(TlsErrorKind.UnexpectedEof));
+      return (state).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.UnexpectedEof));
     }
 
     if progress.state == TlsStepState.Complete || progress.state == TlsStepState.PeerClosed {
@@ -278,7 +275,7 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
         let copied: Result<NetBuffer, NetError> = NetBuffer.CopyFrom(bytes);
         let copy_error: NetError? = copied.get_if<NetError>();
         if copy_error != nil {
-          return tls_stream_fail(state, tls_stream_transport_error(copy_error as NetError));
+          return (state).Fail(TlsStreamError.FromTransport(copy_error as NetError));
         }
 
         state.result_buffer = (copied.get_if<NetBuffer>()) as NetBuffer;
@@ -290,7 +287,7 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
       continue;
     }
 
-    if progress.state == TlsStepState.NeedOutput || state.session.PendingCiphertext() >(0 as intptr) {
+    if progress.state == TlsStepState.NeedOutput || state.session.PendingCiphertext() >(0ip) {
       continue;
     }
 
@@ -299,24 +296,24 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
     }
 
     if state.input_ended {
-      return tls_stream_fail(state, tls_stream_error(TlsErrorKind.UnexpectedEof));
+      return (state).Fail(TlsStreamError.FromTlsKind(TlsErrorKind.UnexpectedEof));
     }
 
     let input: NetMutableBytes = (NetMutableBytes.FromRaw(
       &mut state.incoming[0],
-      16384 as intptr
+      16384ip
     ).get_if<NetMutableBytes>()) as NetMutableBytes;
     let received: Result<intptr, NetError> = state.connection.TryRead(input);
     let receive_error: NetError? = received.get_if<NetError>();
     if receive_error != nil {
       let error: NetError = receive_error as NetError;
       if error.kind != NetErrorKind.WouldBlock {
-        return tls_stream_fail(state, tls_stream_transport_error(error));
+        return (state).Fail(TlsStreamError.FromTransport(error));
       }
 
-      let registered: TlsStreamError? = tls_stream_register(state, false);
+      let registered: TlsStreamError? = (state).RegisterReadiness(false);
       if registered != nil {
-        return tls_stream_fail(state, registered as TlsStreamError);
+        return (state).Fail(registered as TlsStreamError);
       }
 
       state.driving = false;
@@ -324,9 +321,9 @@ pub method(TlsStream) Poll(maximum_wait_ms: int32) -> Result<int32, TlsStreamErr
       return 0;
     }
 
-    state.incoming_start = 0 as intptr;
+    state.incoming_start = 0ip;
     state.incoming_count = (received.get_if<intptr>()) as intptr;
-    if state.incoming_count == (0 as intptr) {
+    if state.incoming_count == (0ip) {
       state.input_eof = true;
     }
   }

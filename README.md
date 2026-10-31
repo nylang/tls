@@ -1,5 +1,8 @@
 # tls
 
+Development API 0.3.0 requires a matching Nyra SDK 1.0.5 or newer.
+Rebuild precompiled consumers against the matching interfaces and runtime.
+
 Independent Nyra TLS package, MIT licensed. The initial backend is OpenSSL
 3.5 LTS, pinned to **3.5.9** with a verified source archive hash in
 [openssl.lock.json](openssl.lock.json). OpenSSL is Apache-2.0 licensed; see
@@ -230,3 +233,12 @@ receipts retain their original pending/partial state and are not rewritten.
 ## Module architecture
 
 See [module responsibilities, ownership and dependency boundaries](ARCHITECTURE.md).
+
+## Coding-rule lint
+
+`package.yaml` selects the portable `lint.yaml` profile. It requires the
+1.0.5 P7 analyzer candidate (or a later SDK containing those rules); the
+published 1.0.4 analyzer does not implement them. `import: default` inherits
+the selected workspace profile when present, otherwise analyzer SDK defaults.
+No sibling source path is required. Run `nyra-analyzer lint . --json`. Existing
+violations remain migration debt; lint success is not runtime qualification.

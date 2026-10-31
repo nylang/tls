@@ -47,7 +47,7 @@ pub struct TlsSession {
   handle: *mut uint8;
 }
 
-func tls_error(code: int32) -> TlsError {
+static method(TlsError) FromNativeCode(code: int32) -> TlsError {
   var kind: TlsErrorKind = TlsErrorKind.Protocol;
   if code == 1 {
     kind = TlsErrorKind.InvalidArgument;
@@ -70,35 +70,34 @@ func tls_error(code: int32) -> TlsError {
   return TlsError{kind: kind};
 }
 
-func tls_progress(value: ref TlsNativeResult) -> Result<TlsProgress, TlsError> {
-  if value.error != 0 {
-    return tls_error(value.error);
+method(TlsNativeResult) AsProgress() -> Result<TlsProgress, TlsError> {
+  if self.error != 0 {
+    return TlsError.FromNativeCode(self.error);
   }
 
   var state: TlsStepState = TlsStepState.Complete;
-  if value.status == 1 {
+  if self.status == 1 {
     state = TlsStepState.NeedInput;
-  } else if value.status == 2 {
+  } else if self.status == 2 {
     state = TlsStepState.NeedOutput;
-  } else if value.status == 3 {
+  } else if self.status == 3 {
     state = TlsStepState.PeerClosed;
   }
 
-  return TlsProgress{state: state, bytes_transferred: value.count};
+  return TlsProgress{state: state, bytes_transferred: self.count};
 }
 
-func tls_step(
-  session: ref mut TlsSession,
+method(TlsSession) Step(
   operation: int32,
   input: *const uint8,
   output: *mut uint8,
   size: intptr,
   options: ref NetOperationOptions
 ) -> Result<TlsProgress, TlsError> {
-  let checked: Result<Unit, NetError> = options.Check(NetClock.NowNanoseconds());
+  let checked: Result<Unit, NetError> = options.CheckNow();
   let failure: NetError? = checked.get_if<NetError>();
   if failure != nil {
-    session.Close();
+    self.Close();
     let error: NetError = failure as NetError;
     if error.kind == NetErrorKind.Cancelled {
       return TlsError{kind: TlsErrorKind.Cancelled};
@@ -108,9 +107,9 @@ func tls_step(
   }
 
   var result: TlsNativeResult = TlsNativeResult{};
-  nyra_tls_step(session.handle, operation, input, output, size, &mut result);
+  nyra_tls_step(self.handle, operation, input, output, size, &mut result);
 
-  return tls_progress(result);
+  return (result).AsProgress();
 }
 
 /**
@@ -146,7 +145,7 @@ pub static method(TlsSession) NewClient(config: ref TlsClientConfig) -> Result<T
     config.ca_file.data as *const uint8, config.ca_file.length as intptr,
     config.alpn.data as *const uint8, config.alpn.length as intptr, capacity, &mut handle);
   if code != 0 {
-    return tls_error(code);
+    return TlsError.FromNativeCode(code);
   }
 
   return TlsSession{handle: handle};
@@ -158,7 +157,7 @@ pub static method(TlsSession) NewClient(config: ref TlsClientConfig) -> Result<T
  * @note Controls use NetClock's origin. Expiration/cancellation closes the engine before return.
  */
 pub method(TlsSession) HandshakeStep(options: ref NetOperationOptions) -> Result<TlsProgress, TlsError> {
-  return tls_step(self, 0, 0 as *const uint8, 0 as *mut uint8, 0 as intptr, options);
+  return self.Step(0, 0 as *const uint8, 0 as *mut uint8, 0ip, options);
 }
 
 /**
@@ -172,7 +171,7 @@ pub method(TlsSession) ReadStep(
   buffer: ref NetMutableBytes,
   options: ref NetOperationOptions
 ) -> Result<TlsProgress, TlsError> {
-  return tls_step(self, 1, 0 as *const uint8, buffer.Data(), buffer.Len(), options);
+  return self.Step(1, 0 as *const uint8, buffer.Data(), buffer.Len(), options);
 }
 
 /**
@@ -185,7 +184,7 @@ pub method(TlsSession) WriteStep(
   buffer: ref NetBytes,
   options: ref NetOperationOptions
 ) -> Result<TlsProgress, TlsError> {
-  return tls_step(self, 2, buffer.Data(), 0 as *mut uint8, buffer.Len(), options);
+  return self.Step(2, buffer.Data(), 0 as *mut uint8, buffer.Len(), options);
 }
 
 /**
@@ -194,7 +193,7 @@ pub method(TlsSession) WriteStep(
  * @note Drain all queued output before retiring the transport. Controls still apply to shutdown.
  */
 pub method(TlsSession) ShutdownStep(options: ref NetOperationOptions) -> Result<TlsProgress, TlsError> {
-  return tls_step(self, 3, 0 as *const uint8, 0 as *mut uint8, 0 as intptr, options);
+  return self.Step(3, 0 as *const uint8, 0 as *mut uint8, 0ip, options);
 }
 
 /**
@@ -207,7 +206,7 @@ pub method(TlsSession) FeedCiphertext(buffer: ref NetBytes) -> Result<intptr, Tl
   var result: TlsNativeResult = TlsNativeResult{};
   nyra_tls_step(self.handle, 4, buffer.Data(), 0 as *mut uint8, buffer.Len(), &mut result);
   if result.error != 0 {
-    return tls_error(result.error);
+    return TlsError.FromNativeCode(result.error);
   }
 
   return result.count;
@@ -222,7 +221,7 @@ pub method(TlsSession) DrainCiphertext(buffer: ref NetMutableBytes) -> Result<in
   var result: TlsNativeResult = TlsNativeResult{};
   nyra_tls_step(self.handle, 5, 0 as *const uint8, buffer.Data(), buffer.Len(), &mut result);
   if result.error != 0 {
-    return tls_error(result.error);
+    return TlsError.FromNativeCode(result.error);
   }
 
   return result.count;
@@ -244,7 +243,7 @@ pub method(TlsSession) PendingCiphertext() -> intptr {
 pub method(TlsSession) EndInput() -> Result<Unit, TlsError> {
   let code: int32 = nyra_tls_end_input(self.handle);
   if code != 0 {
-    return tls_error(code);
+    return TlsError.FromNativeCode(code);
   }
 
   return UnitValue();
@@ -258,9 +257,9 @@ pub method(TlsSession) SelectedAlpn() -> Result<string, TlsError> {
   var bytes: <uint8>[255] = <uint8>[255] {
   };
   var result: TlsNativeResult = TlsNativeResult{};
-  nyra_tls_step(self.handle, 6, 0 as *const uint8, &mut bytes[0], 255 as intptr, &mut result);
+  nyra_tls_step(self.handle, 6, 0 as *const uint8, &mut bytes[0], 255ip, &mut result);
   if result.error != 0 {
-    return tls_error(result.error);
+    return TlsError.FromNativeCode(result.error);
   }
 
   return string.ViewFrom(&bytes[0] as *const int8, result.count as int32).Substring(0, result.count as int32);
@@ -298,5 +297,5 @@ pub method(TlsSession) ProbeReadStep(
   buffer: ref NetMutableBytes,
   options: ref NetOperationOptions
 ) -> Result<TlsProgress, TlsError> {
-  return tls_step(self, 7, 0 as *const uint8, buffer.Data(), buffer.Len(), options);
+  return self.Step(7, 0 as *const uint8, buffer.Data(), buffer.Len(), options);
 }
