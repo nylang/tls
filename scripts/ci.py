@@ -12,20 +12,32 @@ from native_provider import source_layout
 PACKAGE=Path(__file__).resolve().parents[1]
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out-dir',type=Path,required=True);p.add_argument('--sdk',type=Path,help='Reuse a local SDK, still checked against release.lock hashes');p.add_argument('--openssl-root',type=Path,help='Reuse the matching managed static OpenSSL provider');a=p.parse_args();out=a.out_dir.resolve()
-    if out.exists():p.error('new external output required')
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--resume-portable',action='store_true',help='Continue only portability after complete retained acceptance');p.add_argument('--out-dir',type=Path,required=True);p.add_argument('--sdk',type=Path,help='Reuse a local SDK, still checked against release.lock hashes');p.add_argument('--openssl-root',type=Path,help='Reuse the matching managed static OpenSSL provider');a=p.parse_args();out=a.out_dir.resolve()
+    if out.exists() and not a.resume_portable:p.error('new external output required')
     if out==PACKAGE or PACKAGE in out.parents:p.error('output must be outside package')
-    out.mkdir(parents=True);win=os.name=='nt';suffix='.exe' if win else '';host={'Darwin':'darwin','Linux':'linux','Windows':'windows'}[platform.system()]+'-'+('arm64' if platform.machine().lower() in ('arm64','aarch64') else 'x86_64')
+    out.mkdir(parents=True,exist_ok=a.resume_portable);win=os.name=='nt';suffix='.exe' if win else '';host={'Darwin':'darwin','Linux':'linux','Windows':'windows'}[platform.system()]+'-'+('arm64' if platform.machine().lower() in ('arm64','aarch64') else 'x86_64')
     lock=json.loads((PACKAGE/'release.lock.json').read_text());sdk_lock=lock['sdk'];pins=sdk_lock['hosts'].get(host);version=sdk_lock['version'];name='nyra-sdk-'+version+'-'+host
     if pins is None:raise ValueError('qualified SDK '+version+' pins are pending for '+host)
     if any(not isinstance(pins[key],str) or not re.fullmatch(r'[0-9a-f]{64}',pins[key]) for key in ('archive_sha256','manifest_sha256')):raise ValueError('SDK release hashes are not frozen; do not tag TLS yet')
     report={'format':'nyra-tls-ci-v1','status':'running','host':host,'source_commit':revision(PACKAGE),'net_core_commit':lock['net_core']['commit'],'sanitized':not win,'commands':[]}
+    prior=json.loads((out/'ci-report.json').read_text()) if a.resume_portable else None
+    if prior:report['previous_attempt']=prior
     def save():(out/'ci-report.json').write_text(json.dumps(report,indent=2)+'\n')
     def run(name,cmd,env=None):
+        if a.resume_portable and name in ('provider-layout-unit','sdk-layout-unit','packager-unit','net-init','net-line-endings','net-remote','net-fetch','net-checkout','accept','tls-native'):
+            if not (out/(name+'.log')).is_file():raise ValueError('missing completed step log: '+name)
+            return
         report['commands'].append({'name':name,'command':list(map(str,cmd))});save();print('BEGIN '+name,flush=True)
         with (out/(name+'.log')).open('w') as log:subprocess.run(list(map(str,cmd)),env=env,stdout=log,stderr=subprocess.STDOUT,timeout=3600,check=True)
         print('END '+name,flush=True)
     try:
+        if a.resume_portable:
+            accepted=json.loads((out/'acceptance/acceptance.json').read_text())
+            if not prior or prior.get('status')!='failed' or accepted['status']!='passed' or accepted['compiler_origin']!='public-sdk':raise ValueError('complete original package acceptance required')
+            if accepted['sdk_manifest_sha256']!=prior['sdk_manifest_sha256']:raise ValueError('retained SDK acceptance identity changed')
+            for name,digest_value in accepted['source_sha256'].items():
+                if Path(name).suffix in ('.ny','.ni','.nk','.c','.h') and digest(PACKAGE/name)!=digest_value:raise ValueError('accepted package API changed')
+            report['complete_package_acceptance_reused']=True
         run('provider-layout-unit',[sys.executable,PACKAGE/'tests/tools/test_native_provider.py'])
         run('sdk-layout-unit',[sys.executable,PACKAGE/'tests/tools/test_sdk_layout.py'])
         run('packager-unit',[sys.executable,PACKAGE/'tests/tools/test_release_source.py'])
@@ -58,7 +70,7 @@ def main():
         provider_env=os.environ.copy()
         if platform.system()=='Darwin':provider_env['MACOSX_DEPLOYMENT_TARGET']='14.0'
         if a.openssl_root:
-            ssl=source_layout(a.openssl_root.expanduser(),out/'openssl-provider',win)
+            ssl=out/'openssl-provider' if a.resume_portable else source_layout(a.openssl_root.expanduser(),out/'openssl-provider',win)
         else:
             run('openssl',[sys.executable,PACKAGE/'scripts/build_openssl.py','--out-dir',out/'openssl','--perl',perl,'--build-cli','--jobs','4'],provider_env)
             ssl=out/'openssl'/('openssl-'+json.loads((PACKAGE/'openssl.lock.json').read_text())['version'])
@@ -69,12 +81,18 @@ def main():
         kit=sdk/'hosts'/host/'llvm/bin';env=os.environ|{'CC':str(kit/('clang'+suffix)),'AR':str(kit/('llvm-ar'+suffix)),'PATH':str(kit)+os.pathsep+os.environ.get('PATH',''),'NYRA_SDK_ROOT':str(sdk),'NYRA_KERNEL_ROOT':str(out/'source-fallback-disabled')}
         if not win and platform.system()=='Darwin':env|={'SDKROOT':subprocess.check_output(['xcrun','--show-sdk-path'],text=True).strip(),'MACOSX_DEPLOYMENT_TARGET':'14.0'}
         run('tls-native',[sys.executable,PACKAGE/'scripts/build_native.py','--openssl-root',ssl,'--out-dir',out/'tls-native','--cc',kit/('clang'+suffix),'--ar',kit/('llvm-ar'+suffix)],env)
-        stage=out/'portable';stage.mkdir();prepare_tree(PACKAGE,stage/'tls','tls');prepare_tree(net,stage/'net_core','net_core');moved=out/'moved';stage.rename(moved)
+        moved=out/'moved'
+        if not a.resume_portable:
+            stage=out/'portable';stage.mkdir();prepare_tree(PACKAGE,stage/'tls','tls');prepare_tree(net,stage/'net_core','net_core');stage.rename(moved)
+        else:
+            for name,checksum in prior.get('retained_portable_inputs',{}).items():
+                if digest(moved/name)!=checksum:raise ValueError('retained portable input changed')
         # Keep the relocated package's public Git origins intact.
         public_manifest=(moved/'tls/package.yaml').read_bytes()
-        consumer=moved/'consumer';consumer.mkdir()
+        report['retained_portable_inputs']={name:digest(moved/name) for name in ('tls/package.yaml','net_core/package.yaml')}
+        consumer=moved
         origin=lock['net_core']
-        (consumer/'package.yaml').write_text('name: tls_consumer\ndependencies:\n  tls:\n    path: ../tls\n  net_core:\n    git: '+origin['url']+'\n    rev: '+origin['commit']+'\n')
+        (consumer/'package.yaml').write_text('name: tls_consumer\ndependencies:\n  tls:\n    path: ./tls\n  net_core:\n    git: '+origin['url']+'\n    rev: '+origin['commit']+'\n')
         manager=(sdk/metadata['tools']['nyra']['path']).resolve()
         if sdk.resolve() not in manager.parents or digest(manager)!=metadata['tools']['nyra']['sha256']:
             raise ValueError('SDK package-manager identity mismatch')

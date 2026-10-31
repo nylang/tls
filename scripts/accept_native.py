@@ -78,8 +78,9 @@ def main() -> int:
              '-CAkey', str(output / 'ca.key'), '-CAcreateserial', '-days', '2', '-sha256',
              '-extfile', str(output / 'cn-only.ext'), '-out', str(output / 'cn-only.pem')])
         generate_certificate_fixtures(run, output, args.openssl_cli)
+        arch_flags = ['-arch', platform.machine()] if platform.system() == 'Darwin' else []
         flags = ['-fsanitize=address,undefined', '-fno-omit-frame-pointer'] if args.sanitize else []
-        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *arch_flags, *flags,
              '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
              str(PACKAGE / 'tests/native/engine_test.c'),
              str(PACKAGE / 'private/native/tls_engine.c'), *map(str, static_libraries(ssl, windows)),
@@ -90,12 +91,12 @@ def main() -> int:
             raise ValueError('no native behavior cases executed')
         injected = output / 'resource-engine.o'
         resource_executable = output / ('resource-test.exe' if windows else 'resource-test')
-        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *arch_flags, *flags,
              '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
              '-include', str(PACKAGE / 'tests/native/resource_hooks.h'),
              '-DNYRA_TLS_TEST_RESOURCE_INJECTION', '-c', str(PACKAGE / 'private/native/tls_engine.c'),
              '-o', str(injected)])
-        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *arch_flags, *flags,
              '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
              str(PACKAGE / 'tests/native/resource_test.c'), str(injected),
              *map(str, static_libraries(ssl, windows)),
@@ -106,7 +107,7 @@ def main() -> int:
             raise ValueError('not all constructor resource-failure scenarios executed')
         report['cases'].extend(report['resource_cases'])
         runtime_executable = output / ('runtime-resource-test.exe' if windows else 'runtime-resource-test')
-        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *flags,
+        run([args.cc, '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', *arch_flags, *flags,
              '-I' + str(ssl / 'include'), '-I' + str(PACKAGE / 'private/native'),
              str(PACKAGE / 'tests/native/runtime_resource_test.c'),
              str(PACKAGE / 'private/native/tls_engine.c'),
