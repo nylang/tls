@@ -15,7 +15,7 @@ import subprocess
 import sys
 from native_support import static_libraries, system_libraries
 
-from sdk_layout import sdk_package
+from sdk_layout import sdk_package, sdk_entry
 PACKAGE = Path(__file__).resolve().parents[1]
 
 def digest(path: Path) -> str:
@@ -102,7 +102,7 @@ def main() -> int:
             shutil.copytree(source, stage / name, ignore=shutil.ignore_patterns('.git', '__pycache__', 'cache', 'bin', 'lib', 'out'))
         for name in ('tls', 'net_core'):
             extra = '  net_core:\n    path: ../net_core\n' if name == 'tls' else ''
-            (stage / name / 'package.yaml').write_text('name: ' + name + '\nversion: 0.1.0\nlicense: MIT\ndependencies:\n  stdlib:\n    precompiled: ' + json.dumps(str(stdlib)) + '\n' + extra + 'directories:\n  interface:\n    - interface\n  private:\n    - private\n    - tests\n')
+            (stage / name / 'package.yaml').write_text('name: ' + name + '\nversion: 0.1.0\nlicense: MIT\ndependencies:\n  stdlib:\n    precompiled: ' + json.dumps(str(sdk_entry(sdk, host, 'stdlib'))) + '\n' + extra + 'directories:\n  interface:\n    - interface\n  private:\n    - private\n    - tests\n')
         report['staged_manifest_sha256'] = {name: digest(stage / name / 'package.yaml') for name in ('tls', 'net_core')}
         run('net-native', [sys.executable, str(net / 'scripts/build_native.py'), '--out-dir', str(output / 'net-native'),
             '--cflag=-Dnet_core_os_write=nyra_tls_test_real_write',
