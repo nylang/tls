@@ -21,6 +21,9 @@ int32_t nyra_tls_client_new(const uint8_t *peer, intptr_t peer_size,
 int32_t nyra_tls_server_new(const uint8_t *cert, intptr_t cert_size,
     const uint8_t *key, intptr_t key_size, const uint8_t *alpn, intptr_t alpn_size,
     int32_t capacity, ntls_session **out);
+int32_t nyra_tls_server_new_alpn(const uint8_t *cert, intptr_t cert_size,
+    const uint8_t *key, intptr_t key_size, const uint8_t *alpn, intptr_t alpn_size,
+    int32_t capacity, ntls_session **out);
 void nyra_tls_drop(ntls_session *session);
 ntls_result nyra_tls_handshake(ntls_session *session);
 ntls_result nyra_tls_read(ntls_session *session, uint8_t *out, intptr_t size);

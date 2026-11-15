@@ -33,6 +33,10 @@ struct TlsNativeResult {
   cert: *const uint8, cert_size: intptr, key: *const uint8, key_size: intptr,
   alpn: *const uint8, alpn_size: intptr, capacity: int32, out: *mut *mut uint8
 ) -> int32;
+@extern("C") func nyra_tls_server_new_alpn(
+  cert: *const uint8, cert_size: intptr, key: *const uint8, key_size: intptr,
+  alpn: *const uint8, alpn_size: intptr, capacity: int32, out: *mut *mut uint8
+) -> int32;
 
 @extern("C") func nyra_tls_step(
   handle: *mut uint8,
@@ -172,6 +176,46 @@ pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<T
     config.cert_file.data as *const uint8, config.cert_file.length as intptr,
     config.key_file.data as *const uint8, config.key_file.length as intptr,
     config.alpn.data as *const uint8, config.alpn.length as intptr, capacity, &mut handle
+  );
+  if code != 0 {
+    return TlsError.FromNativeCode(code);
+  }
+
+  return TlsSession{handle: handle};
+}
+
+pub static method(TlsSession) NewServerWithAlpn(
+  config: ref TlsServerConfig, protocols: ref <string>[]
+) -> Result<TlsSession, TlsError> {
+  if config.alpn.length != 0 || protocols.length == 0 {
+    return TlsError{kind: TlsErrorKind.InvalidArgument};
+  }
+
+  var wire: <uint8>[1024] = <uint8>[1024]{};
+  var size: int32 = 0;
+  var i: int32 = 0;
+  while i < protocols.length {
+    let name = protocols[i];
+    if name.length == 0 || name.length > 255 || name.length >= 1024 - size {
+      return TlsError{kind: TlsErrorKind.InvalidArgument};
+    }
+
+    wire[size] = name.length as uint8;
+    size += 1;
+    var j: int32 = 0;
+    while j < name.length {
+      wire[size] = name.ByteAt(j) as uint8;
+      size += 1;
+      j += 1;
+    }
+    i += 1;
+  }
+
+  var handle: *mut uint8 = nil;
+  let capacity = config.ciphertext_capacity == 0 ? 32768 : config.ciphertext_capacity;
+  let code = nyra_tls_server_new_alpn(
+    config.cert_file.data as *const uint8, config.cert_file.length as intptr,
+    config.key_file.data as *const uint8, config.key_file.length as intptr, &wire[0], size as intptr, capacity, &mut handle
   );
   if code != 0 {
     return TlsError.FromNativeCode(code);

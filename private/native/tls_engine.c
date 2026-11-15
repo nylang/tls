@@ -23,7 +23,8 @@ struct ntls_session {
   int handshaken, closing, failed, input_ended;
   int pending; /* 0 none, 1 read, 2 write, 3 read-probe retry; one caller-thread operation at a time. */
   size_t write_size, read_size;
-  uint8_t server_alpn[256];
+  uint8_t server_alpn[1024];
+  unsigned int server_alpn_size;
   uint8_t write_retry[NTLS_RECORD];
   uint8_t read_retry[NTLS_RECORD];
 };
@@ -128,7 +129,7 @@ static int server_alpn(SSL *ssl, const unsigned char **out, unsigned char *out_s
   ntls_session *s = arg;
   unsigned char *selected = NULL;
   if (SSL_select_next_proto(&selected, out_size, s->server_alpn,
-          (unsigned int)s->server_alpn[0] + 1, offered, offered_size) != OPENSSL_NPN_NEGOTIATED)
+          s->server_alpn_size, offered, offered_size) != OPENSSL_NPN_NEGOTIATED)
     return SSL_TLSEXT_ERR_ALERT_FATAL;
   *out = selected;
   return SSL_TLSEXT_ERR_OK;
@@ -139,7 +140,7 @@ static int refuse_password(char *buffer, int size, int writing, void *arg) {
   return 0;
 }
 
-int32_t nyra_tls_server_new(const uint8_t *cert, intptr_t cert_size,
+int32_t nyra_tls_server_new_alpn(const uint8_t *cert, intptr_t cert_size,
     const uint8_t *key, intptr_t key_size, const uint8_t *alpn, intptr_t alpn_size,
     int32_t capacity, ntls_session **out) {
   char cert_path[4096], key_path[4096];
@@ -151,8 +152,13 @@ int32_t nyra_tls_server_new(const uint8_t *cert, intptr_t cert_size,
   *out = NULL;
   if (!text_copy(cert, cert_size, cert_path, sizeof(cert_path)) ||
       !text_copy(key, key_size, key_path, sizeof(key_path)) ||
-      !range_ok(alpn, alpn_size) || alpn_size > 255 ||
+      !range_ok(alpn, alpn_size) || alpn_size > 1024 ||
       capacity < 1024 || capacity > 1048576) return NTLS_ARGUMENT;
+  for (intptr_t i = 0; i < alpn_size;) {
+    intptr_t length = alpn[i++];
+    if (!length || length > alpn_size - i) return NTLS_ARGUMENT;
+    i += length;
+  }
   if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER) return NTLS_STATE;
   ERR_clear_error();
   s = calloc(1, sizeof(*s));
@@ -169,8 +175,8 @@ int32_t nyra_tls_server_new(const uint8_t *cert, intptr_t cert_size,
     goto done;
   }
   if (alpn_size) {
-    s->server_alpn[0] = (uint8_t)alpn_size;
-    memcpy(s->server_alpn + 1, alpn, (size_t)alpn_size);
+    memcpy(s->server_alpn, alpn, (size_t)alpn_size);
+    s->server_alpn_size = (unsigned int)alpn_size;
     SSL_CTX_set_alpn_select_cb(ctx, server_alpn, s);
   }
   s->ssl = SSL_new(ctx);
@@ -182,6 +188,22 @@ done:
   BIO_free(internal); SSL_CTX_free(ctx); nyra_tls_drop(s);
   ERR_clear_error();
   return error;
+}
+
+int32_t nyra_tls_server_new(const uint8_t *cert, intptr_t cert_size,
+    const uint8_t *key, intptr_t key_size, const uint8_t *alpn, intptr_t alpn_size,
+    int32_t capacity, ntls_session **out) {
+  if (!range_ok(alpn, alpn_size) || alpn_size > 255) {
+    if (out) *out = NULL;
+    return NTLS_ARGUMENT;
+  }
+  uint8_t list[256];
+  if (alpn_size) {
+    list[0] = (uint8_t)alpn_size;
+    memcpy(list + 1, alpn, (size_t)alpn_size);
+  }
+  return nyra_tls_server_new_alpn(cert, cert_size, key, key_size, list,
+      alpn_size ? alpn_size + 1 : 0, capacity, out);
 }
 static ntls_result classify_error(ntls_session *s, int error, size_t count) {
   if (error == SSL_ERROR_NONE) return result(NTLS_COMPLETE, NTLS_OK, count);

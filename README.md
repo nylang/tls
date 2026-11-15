@@ -243,3 +243,9 @@ without owning it. `TlsStream.NewServer` adopts accepted TCP and begins
 negotiation when `HandshakeAsync` is driven. A configured ALPN identifier
 must match a client ALPN offer when one is present. Read the negotiated
 result through `SelectedAlpn`.
+## Server ALPN preferences
+
+`TlsStream.NewServerWithAlpn` and `TlsSession.NewServerWithAlpn` take an
+ordered list of protocol names and a configuration with empty `alpn`.
+The first matching name wins. A client without ALPN keeps the selection
+empty. The provider rejects an incompatible offer during the handshake.

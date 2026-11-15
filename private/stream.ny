@@ -281,6 +281,22 @@ pub static method(TlsStream) NewServer(
   return TlsStream.Attach(connection, session, 1048576ip);
 }
 
+pub static method(TlsStream) NewServerWithAlpn(
+  connection: ref mut TcpConnection, config: ref TlsServerConfig, protocols: ref <string>[]
+) -> Result<TlsStream, TlsStreamError> {
+  if !connection.IsOpen() {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
+  }
+
+  var made = TlsSession.NewServerWithAlpn(config, protocols);
+  if made.IsErr() {
+    return TlsStreamError{tls_error: made.get_if<TlsError>()};
+  }
+
+  var session = move(made.get_if<TlsSession>() as TlsSession);
+  return TlsStream.Attach(connection, session, 1048576ip);
+}
+
 static method(TlsStream) Attach(
   connection: ref mut TcpConnection, session: ref mut TlsSession, max_retained_bytes: intptr
 ) -> Result<TlsStream, TlsStreamError> {

@@ -101,6 +101,14 @@ pub struct TlsServerConfig {
 /** @brief Create a transport-neutral server TLS session with the configured identity. */
 pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<TlsSession, TlsError>;
 
+/** @brief Create a server with an ordered list of ALPN protocols.
+ * @note Supply an empty config.alpn. The first server preference also offered
+ * by the client wins. A client without ALPN leaves the selected protocol empty.
+ * The encoded list can occupy at most 1024 bytes. */
+pub static method(TlsSession) NewServerWithAlpn(
+  config: ref TlsServerConfig, protocols: ref <string>[]
+) -> Result<TlsSession, TlsError>;
+
 /**
  * @brief Advance the handshake once; feed input or drain output before retrying as indicated.
  * @returns Complete only after certificate and identity verification, progress need, or failure.
