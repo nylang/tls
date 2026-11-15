@@ -29,6 +29,11 @@ struct TlsNativeResult {
 
 @extern("C") func nyra_tls_drop(handle: *mut uint8) -> void;
 
+@extern("C") func nyra_tls_server_new(
+  cert: *const uint8, cert_size: intptr, key: *const uint8, key_size: intptr,
+  alpn: *const uint8, alpn_size: intptr, capacity: int32, out: *mut *mut uint8
+) -> int32;
+
 @extern("C") func nyra_tls_step(
   handle: *mut uint8,
   operation: int32,
@@ -153,11 +158,26 @@ pub static method(TlsSession) NewClient(config: ref TlsClientConfig) -> Result<T
 
 /**
  * @brief Advance the handshake once; feed input or drain output before retrying as indicated.
- * @returns Complete only after certificate and identity verification, progress need, or failure.
+ * @returns Complete after handshake, progress need, or failure. The client role verifies the server identity.
  * @note Controls use NetClock's origin. Expiration/cancellation closes the engine before return.
  */
 pub method(TlsSession) HandshakeStep(options: ref NetOperationOptions) -> Result<TlsProgress, TlsError> {
   return self.Step(0, 0 as *const uint8, 0 as *mut uint8, 0ip, options);
+}
+
+pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<TlsSession, TlsError> {
+  var handle: *mut uint8 = nil;
+  let capacity = config.ciphertext_capacity == 0 ? 32768 : config.ciphertext_capacity;
+  let code = nyra_tls_server_new(
+    config.cert_file.data as *const uint8, config.cert_file.length as intptr,
+    config.key_file.data as *const uint8, config.key_file.length as intptr,
+    config.alpn.data as *const uint8, config.alpn.length as intptr, capacity, &mut handle
+  );
+  if code != 0 {
+    return TlsError.FromNativeCode(code);
+  }
+
+  return TlsSession{handle: handle};
 }
 
 /**

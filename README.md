@@ -234,3 +234,12 @@ published 1.0.4 analyzer does not implement them. `import: default` inherits
 the selected workspace profile when present, otherwise analyzer SDK defaults.
 No sibling source path is required. Run `nyra-analyzer lint . --json`. Lint checks
 coding rules; runtime qualification is a separate gate.
+
+## Server connections
+
+Use `TlsServerConfig` with a PEM certificate chain and an unencrypted
+PEM private key. `TlsSession.NewServer` drives an ordered byte transport
+without owning it. `TlsStream.NewServer` adopts accepted TCP and begins
+negotiation when `HandshakeAsync` is driven. A configured ALPN identifier
+must match a client ALPN offer when one is present. Read the negotiated
+result through `SelectedAlpn`.

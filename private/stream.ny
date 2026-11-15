@@ -260,6 +260,30 @@ pub static method(TlsStream) NewClientWithLimit(
     return TlsStreamError{tls_error: failure};
   }
 
+  var session = move(made.get_if<TlsSession>() as TlsSession);
+  return TlsStream.Attach(connection, session, max_retained_bytes);
+}
+
+pub static method(TlsStream) NewServer(
+  connection: ref mut TcpConnection, config: ref TlsServerConfig
+) -> Result<TlsStream, TlsStreamError> {
+  if !connection.IsOpen() {
+    return TlsStreamError.FromTlsKind(TlsErrorKind.Closed);
+  }
+
+  var made: Result<TlsSession, TlsError> = TlsSession.NewServer(config);
+  let failure: TlsError? = made.get_if<TlsError>();
+  if failure != nil {
+    return TlsStreamError{tls_error: failure};
+  }
+
+  var session = move(made.get_if<TlsSession>() as TlsSession);
+  return TlsStream.Attach(connection, session, 1048576ip);
+}
+
+static method(TlsStream) Attach(
+  connection: ref mut TcpConnection, session: ref mut TlsSession, max_retained_bytes: intptr
+) -> Result<TlsStream, TlsStreamError> {
   var driver_result: Result<NetEventLoop, NetError> = NetEventLoop.New(1);
   let driver_error: NetError? = driver_result.get_if<NetError>();
   if driver_error != nil {
@@ -268,7 +292,7 @@ pub static method(TlsStream) NewClientWithLimit(
 
   let state: arc<TlsStreamState> = new arc<TlsStreamState>{
     connection: move(connection),
-    session: move((made.get_if<TlsSession>()) as TlsSession),
+    session: move(session),
     driver: move((driver_result.get_if<NetEventLoop>()) as NetEventLoop),
     maximum: max_retained_bytes
   };

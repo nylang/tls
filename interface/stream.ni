@@ -60,6 +60,12 @@ pub static method(TlsStream) NewClient(
   config: ref TlsClientConfig
 ) -> Result<TlsStream, TlsStreamError>;
 
+/** @brief Wrap accepted TCP in a server TLS stream; start handshake with HandshakeAsync.
+ * @note A constructor failure leaves the connection untouched. */
+pub static method(TlsStream) NewServer(
+  connection: ref mut TcpConnection, config: ref TlsServerConfig
+) -> Result<TlsStream, TlsStreamError>;
+
 /**
  * @brief Create with a nonnegative pending-payload limit; reads reserve requested bytes.
  * @param max_retained_bytes Writes charge the complete NetBuffer backing, even for a small

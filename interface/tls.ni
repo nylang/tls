@@ -86,6 +86,21 @@ pub method(TlsSession) operator drop() -> void;
  */
 pub static method(TlsSession) NewClient(config: ref TlsClientConfig) -> Result<TlsSession, TlsError>;
 
+/** @brief Credentials and ALPN for one TLS 1.2/1.3 server session.
+ * @note PEM private key must be unencrypted. The server authenticates itself.
+ * A nonempty alpn selects exactly
+ * that protocol when the peer sends ALPN. A peer omitting ALPN leaves it empty.
+ * Zero ciphertext_capacity uses the same default as NewClient. */
+pub struct TlsServerConfig {
+  cert_file: string;
+  key_file: string;
+  alpn: string;
+  ciphertext_capacity: int32;
+}
+
+/** @brief Create a transport-neutral server TLS session with the configured identity. */
+pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<TlsSession, TlsError>;
+
 /**
  * @brief Advance the handshake once; feed input or drain output before retrying as indicated.
  * @returns Complete only after certificate and identity verification, progress need, or failure.
