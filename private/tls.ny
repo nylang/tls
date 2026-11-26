@@ -169,6 +169,9 @@ pub method(TlsSession) HandshakeStep(options: ref NetOperationOptions) -> Result
   return self.Step(0, 0 as *const uint8, 0 as *mut uint8, 0ip, options);
 }
 
+/** @brief Create a server TLS session from the supplied configuration.
+ * @returns An owned TLS session or a configuration/allocation error.
+ */
 pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<TlsSession, TlsError> {
   var handle: *mut uint8 = nil;
   let capacity = config.ciphertext_capacity == 0 ? 32768 : config.ciphertext_capacity;
@@ -184,6 +187,9 @@ pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<T
   return TlsSession{handle: handle};
 }
 
+/** @brief Create a server TLS session with ALPN preferences.
+ * @returns An owned TLS session or a configuration/allocation error.
+ */
 pub static method(TlsSession) NewServerWithAlpn(
   config: ref TlsServerConfig, protocols: ref <string>[]
 ) -> Result<TlsSession, TlsError> {

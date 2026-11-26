@@ -98,13 +98,17 @@ pub struct TlsServerConfig {
   ciphertext_capacity: int32;
 }
 
-/** @brief Create a transport-neutral server TLS session with the configured identity. */
+/** @brief Create a transport-neutral server TLS session with the configured identity.
+ * @returns An owned TLS session or a configuration/allocation error.
+ */
 pub static method(TlsSession) NewServer(config: ref TlsServerConfig) -> Result<TlsSession, TlsError>;
 
 /** @brief Create a server with an ordered list of ALPN protocols.
  * @note Supply an empty config.alpn. The first server preference also offered
  * by the client wins. A client without ALPN leaves the selected protocol empty.
- * The encoded list can occupy at most 1024 bytes. */
+ * The encoded list can occupy at most 1024 bytes.
+ * @returns An owned TLS session or a configuration/allocation error.
+ */
 pub static method(TlsSession) NewServerWithAlpn(
   config: ref TlsServerConfig, protocols: ref <string>[]
 ) -> Result<TlsSession, TlsError>;

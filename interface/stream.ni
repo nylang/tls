@@ -61,13 +61,17 @@ pub static method(TlsStream) NewClient(
 ) -> Result<TlsStream, TlsStreamError>;
 
 /** @brief Wrap accepted TCP in a server TLS stream; start handshake with HandshakeAsync.
- * @note A constructor failure leaves the connection untouched. */
+ * @note A constructor failure leaves the connection untouched.
+ * @returns An owned stream or a configuration/driver error; failure leaves TCP untouched.
+ */
 pub static method(TlsStream) NewServer(
   connection: ref mut TcpConnection, config: ref TlsServerConfig
 ) -> Result<TlsStream, TlsStreamError>;
 
 /** @brief Wrap TCP with a server preference list for ALPN.
- * @note A constructor failure leaves the connection untouched. */
+ * @note A constructor failure leaves the connection untouched.
+ * @returns An owned stream or a configuration/driver error; failure leaves TCP untouched.
+ */
 pub static method(TlsStream) NewServerWithAlpn(
   connection: ref mut TcpConnection, config: ref TlsServerConfig, protocols: ref <string>[]
 ) -> Result<TlsStream, TlsStreamError>;

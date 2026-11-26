@@ -264,6 +264,9 @@ pub static method(TlsStream) NewClientWithLimit(
   return TlsStream.Attach(connection, session, max_retained_bytes);
 }
 
+/** @brief Wrap accepted TCP in a server TLS stream.
+ * @returns An owned stream or a configuration/driver error; failure leaves TCP untouched.
+ */
 pub static method(TlsStream) NewServer(
   connection: ref mut TcpConnection, config: ref TlsServerConfig
 ) -> Result<TlsStream, TlsStreamError> {
@@ -281,6 +284,9 @@ pub static method(TlsStream) NewServer(
   return TlsStream.Attach(connection, session, 1048576ip);
 }
 
+/** @brief Wrap accepted TCP with server ALPN preferences.
+ * @returns An owned stream or a configuration/driver error; failure leaves TCP untouched.
+ */
 pub static method(TlsStream) NewServerWithAlpn(
   connection: ref mut TcpConnection, config: ref TlsServerConfig, protocols: ref <string>[]
 ) -> Result<TlsStream, TlsStreamError> {
